@@ -1,8 +1,13 @@
+import { Canvas } from '@react-three/fiber'
 import React from 'react'
+import GameSence from './components/GameSence'
 
 const App = () => {
   return (
-    <div>App</div>
+    <Canvas shadows camera={{position:[3,3,3], fov: 30}}>
+       <color attach="background" args={["#ececec"]} />
+       <GameSence />
+    </Canvas>
   )
 }
 
