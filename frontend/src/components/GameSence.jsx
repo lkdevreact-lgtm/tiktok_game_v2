@@ -1,9 +1,11 @@
 import React from "react";
-import MapStreet from "./MapStreet";
+import { OrbitControls } from "@react-three/drei";
+import MapStreet from "./ui/MapStreet";
 
 const GameSence = () => {
   return (
     <>
+      <OrbitControls />
       <MapStreet />
     </>
   );
