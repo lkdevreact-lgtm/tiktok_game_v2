@@ -1,7 +1,7 @@
 import { useGLTF } from "@react-three/drei";
 
 const MapStreet = () => {
-  const { scene } = useGLTF("models/map_city.glb");
+  const { scene } = useGLTF("models/light_cycle_arena.glb");
 
   return <primitive object={scene} />;
 };

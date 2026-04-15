@@ -59,7 +59,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       lockRotations
       position={[0, 0, -1]}
     >
-      <CuboidCollider args={[0.15, 0.25, 0.15]} position={[0, 0.25, 0]} />
+      <CuboidCollider args={[1, 4, 0.9]} position={[0, 0.25, 0]} />
       <group ref={characterRef}>
         <Character animation={animation} />
       </group>

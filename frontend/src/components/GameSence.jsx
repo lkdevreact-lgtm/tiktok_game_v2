@@ -45,13 +45,13 @@ const GameSence = () => {
 
   return (
     <group>
-      <ambientLight intensity={0.5} />
+      <ambientLight intensity={1} />
       <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} />
       <CameraControls ref={controlsRef} />
       <Physics debug>
-        <CharacterController cameraControlsRef={controlsRef}/> 
+        <CharacterController /> 
         {/* cameraControlsRef={controlsRef} */}
-        <RigidBody type="fixed" colliders="trimesh" position={[7, -0.25, 0]} scale={0.001}>
+        <RigidBody type="fixed" colliders="trimesh" position={[7, -0.3, 10]} scale={1}>
           <MapStreet />
         </RigidBody>
         <RigidBody type="fixed" colliders={false}>

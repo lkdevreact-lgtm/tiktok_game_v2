@@ -20,7 +20,7 @@ const AnimatedModel = ({ url, animationName, visible }) => {
 
   return (
     <group ref={group} visible={visible}>
-      <primitive object={scene} scale={0.3} castShadow />
+      <primitive object={scene} scale={3} castShadow />
     </group>
   );
 };
