@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
-import { RigidBody } from "@react-three/rapier";
+import { CuboidCollider, RigidBody } from "@react-three/rapier";
 import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import Character from "./ui/Character";
 
@@ -55,10 +55,11 @@ const CharacterController = ({ cameraControlsRef }) => {
   return (
     <RigidBody
       ref={rigidBodyRef}
-      colliders="cuboid"
+      colliders={false}
       lockRotations
       position={[0, 0, -1]}
     >
+      <CuboidCollider args={[0.15, 0.25, 0.15]} position={[0, 0.25, 0]} />
       <group ref={characterRef}>
         <Character animation={animation} />
       </group>

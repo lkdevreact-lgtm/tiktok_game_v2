@@ -4,8 +4,8 @@ import GameSence from './components/GameSence'
 
 const App = () => {
   return (
-    <Canvas shadows camera={{position:[3,3,3], fov: 30}}>
-       <color attach="background" args={["#ececec"]} />
+    <Canvas camera={{position:[3,3,3], fov: 25}}>
+       <color attach="background" args={["#87CEEB"]} />
        <GameSence />
     </Canvas>
   )
