@@ -4,11 +4,12 @@ import {
   OrbitControls,
   PerspectiveCamera,
 } from "@react-three/drei";
-import { CuboidCollider, Physics, RigidBody } from "@react-three/rapier";
+import { CuboidCollider, MeshCollider, Physics, RigidBody } from "@react-three/rapier";
 import Character from "./ui/Character";
 import MapStreet from "./ui/MapStreet";
 import { useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
+import CharacterController from "./CharacterController";
 
 const GameSence = () => {
   const controlsRef = useRef();
@@ -47,13 +48,13 @@ const GameSence = () => {
       <ambientLight intensity={0.5} />
       <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} />
       <CameraControls ref={controlsRef} />
-      <Physics debug gravity={[0, -9.81, 10]}>
-        <Character />
-        <RigidBody type="fixed" colliders="trimesh" position={[7, -0.3, 0]}>
+      <Physics debug gravity={[0, -9.81, 0]}>
+        <CharacterController />
+        <RigidBody type="fixed" colliders="trimesh" position={[7, -0.25, 0]}>
           <MapStreet />
         </RigidBody>
-        <RigidBody type="fixed" sensor colliders={false} name="void">
-          <CuboidCollider args={[35, 0.1, 20]} position={[0,-1,-10]} />
+        <RigidBody type="fixed" colliders={false}>
+          <CuboidCollider args={[35, 0.1, 20]} position={[7, -0.35, 0]} />
         </RigidBody>
       </Physics>
     </group>
