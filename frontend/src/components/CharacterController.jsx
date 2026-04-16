@@ -19,7 +19,7 @@ import {
 } from "../stores/gameStore";
 
 const MOVE_SPEED = 40;
-const CAMERA_OFFSET = { x: 10, y: 15, z: -80 };
+const CAMERA_OFFSET = { x: 20, y: 20, z: -80 };
 const SPIDERMAN_MODEL = "models/character/Spiderman.glb";
 const ATTACK_RANGE = 2.5;
 
@@ -230,13 +230,13 @@ const CharacterController = ({ cameraControlsRef }) => {
       colliders={false}
       lockRotations
       type="dynamic"
-      position={[0,0, -1]}
+      position={[-30,10, 400]}
       restitution={0}
       friction={1}
     >
       <CapsuleCollider
         args={[8.4, 7]} 
-        position={[0, 15.33, 0]}
+        position={[0, 15.4, 0]}
       />
 
       <group ref={characterRef}>

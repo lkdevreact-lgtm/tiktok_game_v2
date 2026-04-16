@@ -24,13 +24,15 @@ const GameSence = () => {
         cameraRefernceRef.current,
         new Vector3(0, 0, 0),
       ).width;
+        // console.log("📷 distFactor:", distFactor, "=> gốc cần gắn:", { x: -37 / distFactor, y: 2.46 / distFactor, z: 4.76 / distFactor });
+
     controlsRef.current.setLookAt(
-      -70 * distFactor,
-      4.65 * distFactor,
-      9 * distFactor,
+      -590 * distFactor,
+      445 * distFactor,
+      680 * distFactor,
       0,
       0,
-      0,
+      100,
       true,
     );
   };
@@ -52,9 +54,9 @@ const GameSence = () => {
       <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} near={0.5} far={5000} />
       <CameraControls ref={controlsRef} />
       <Physics debug gravity={[0,-9.81,0]}>
-        <CharacterController />
+        <CharacterController cameraControlsRef={controlsRef}/>
         {/* cameraControlsRef={controlsRef} */}
-        {/* <VenomController /> */}
+        <VenomController />
         <RigidBody type="fixed" colliders="trimesh" position={[7, -0.3, 10]} scale={0.05}>
           <MapStreet />
         </RigidBody>

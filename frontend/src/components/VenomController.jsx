@@ -10,7 +10,7 @@ import { Vector3 } from "three";
 import { gameState } from "../stores/gameStore";
 
 const VENOM_MODEL = "models/character/Venom.glb";
-const MOVE_SPEED = 3;
+const MOVE_SPEED = 30;
 const ATTACK_RANGE = 2;
 const PUNCH_DURATION = 900; // ms
 const PUNCH_COOLDOWN = 1500; // ms between punches
@@ -103,14 +103,14 @@ const VenomController = () => {
       ref={rigidBodyRef}
       colliders={false}
       lockRotations
-      position={[8, 0, -1]}
+      position={[-20, 5, 50]}
     >
-      <CuboidCollider args={[1, 2.8, 0.5]} position={[0.5, 2.8, 0]} />
+      <CapsuleCollider args={[8.9, 10]} position={[0, 18, 0]} />
       <group ref={characterRef}>
         <Character
           modelPath={VENOM_MODEL}
           animation={animation}
-          scale={2.5}
+          scale={12}
           oneShotList={VENOM_ONE_SHOTS}
         />
       </group>
