@@ -52,8 +52,9 @@ const GameSence = () => {
       <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} />
       <CameraControls ref={controlsRef} />
       <Physics debug>
-        <CharacterController cameraControlsRef={controlsRef} />
-        <VenomController />
+        <CharacterController  />
+        {/* cameraControlsRef={controlsRef} */}
+        {/* <VenomController /> */}
         <RigidBody type="fixed" colliders="trimesh" position={[7, -0.3, 10]} scale={1}>
           <MapStreet />
         </RigidBody>

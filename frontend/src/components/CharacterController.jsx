@@ -1,11 +1,22 @@
 import { useRef, useState, useCallback } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { CuboidCollider, RigidBody } from "@react-three/rapier";
+import {
+  BallCollider,
+  CapsuleCollider,
+  CuboidCollider,
+  RigidBody,
+} from "@react-three/rapier";
 import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import Character from "./ui/Character";
 import { Vector3 } from "three";
 import { useSetAtom } from "jotai";
-import { spidermanHpAtom, venomHpAtom, gameOverAtom, winnerAtom, gameState } from "../stores/gameStore";
+import {
+  spidermanHpAtom,
+  venomHpAtom,
+  gameOverAtom,
+  winnerAtom,
+  gameState,
+} from "../stores/gameStore";
 
 const MOVE_SPEED = 5;
 const CAMERA_OFFSET = { x: -15, y: 10, z: -5 };
@@ -33,28 +44,34 @@ const CharacterController = ({ cameraControlsRef }) => {
   const setGameOver = useSetAtom(gameOverAtom);
   const setWinner = useSetAtom(winnerAtom);
 
-  const takeDamage = useCallback((amount) => {
-    if (isDead.current) return;
-    hpRef.current = Math.max(0, hpRef.current - amount);
-    setSpidermanHp(hpRef.current);
-    if (hpRef.current <= 0) {
-      isDead.current = true;
-      setGameOver(true);
-      setWinner("Venom");
-    }
-  }, [setSpidermanHp, setGameOver, setWinner]);
+  const takeDamage = useCallback(
+    (amount) => {
+      if (isDead.current) return;
+      hpRef.current = Math.max(0, hpRef.current - amount);
+      setSpidermanHp(hpRef.current);
+      if (hpRef.current <= 0) {
+        isDead.current = true;
+        setGameOver(true);
+        setWinner("Venom");
+      }
+    },
+    [setSpidermanHp, setGameOver, setWinner],
+  );
 
-  const dealDamageToVenom = useCallback((amount) => {
-    const venomState = gameState.venom;
-    const currentHp = venomState.hp ?? 100;
-    const newHp = Math.max(0, currentHp - amount);
-    venomState.hp = newHp;
-    setVenomHp(newHp);
-    if (newHp <= 0) {
-      setGameOver(true);
-      setWinner("Spiderman");
-    }
-  }, [setVenomHp, setGameOver, setWinner]);
+  const dealDamageToVenom = useCallback(
+    (amount) => {
+      const venomState = gameState.venom;
+      const currentHp = venomState.hp ?? 100;
+      const newHp = Math.max(0, currentHp - amount);
+      venomState.hp = newHp;
+      setVenomHp(newHp);
+      if (newHp <= 0) {
+        setGameOver(true);
+        setWinner("Spiderman");
+      }
+    },
+    [setVenomHp, setGameOver, setWinner],
+  );
 
   useFrame(() => {
     if (!rigidBodyRef.current) return;
@@ -79,10 +96,22 @@ const CharacterController = ({ cameraControlsRef }) => {
     let moveX = 0;
     let moveZ = 0;
 
-    if (keys.current.forward) { moveX += camForward.x; moveZ += camForward.z; }
-    if (keys.current.backward) { moveX -= camForward.x; moveZ -= camForward.z; }
-    if (keys.current.left) { moveX -= camRight.x; moveZ -= camRight.z; }
-    if (keys.current.right) { moveX += camRight.x; moveZ += camRight.z; }
+    if (keys.current.forward) {
+      moveX += camForward.x;
+      moveZ += camForward.z;
+    }
+    if (keys.current.backward) {
+      moveX -= camForward.x;
+      moveZ -= camForward.z;
+    }
+    if (keys.current.left) {
+      moveX -= camRight.x;
+      moveZ -= camRight.z;
+    }
+    if (keys.current.right) {
+      moveX += camRight.x;
+      moveZ += camRight.z;
+    }
 
     const length = Math.sqrt(moveX * moveX + moveZ * moveZ);
     if (length > 0) {
@@ -112,9 +141,16 @@ const CharacterController = ({ cameraControlsRef }) => {
       gameState.spiderman.isAttacking = false;
       gameState.spiderman.attackType = null;
       clearTimeout(jumpTimer.current);
-      jumpTimer.current = setTimeout(() => { jumpLock.current = false; }, 1200);
-    }
-    else if (keys.current.punch && !isMoving && !punchLock.current && !jumpLock.current && !kickLock.current) {
+      jumpTimer.current = setTimeout(() => {
+        jumpLock.current = false;
+      }, 1200);
+    } else if (
+      keys.current.punch &&
+      !isMoving &&
+      !punchLock.current &&
+      !jumpLock.current &&
+      !kickLock.current
+    ) {
       punchLock.current = true;
       setAnimation("Punch");
       gameState.spiderman.isAttacking = true;
@@ -126,8 +162,13 @@ const CharacterController = ({ cameraControlsRef }) => {
         gameState.spiderman.isAttacking = false;
         gameState.spiderman.attackType = null;
       }, 800);
-    }
-    else if (keys.current.kick && !isMoving && !kickLock.current && !jumpLock.current && !punchLock.current) {
+    } else if (
+      keys.current.kick &&
+      !isMoving &&
+      !kickLock.current &&
+      !jumpLock.current &&
+      !punchLock.current
+    ) {
       kickLock.current = true;
       setAnimation("Kick");
       gameState.spiderman.isAttacking = true;
@@ -139,8 +180,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         gameState.spiderman.isAttacking = false;
         gameState.spiderman.attackType = null;
       }, 1000);
-    }
-    else if (!jumpLock.current && !punchLock.current && !kickLock.current) {
+    } else if (!jumpLock.current && !punchLock.current && !kickLock.current) {
       setAnimation(isMoving ? "Run" : "Idle");
     }
 
@@ -189,11 +229,24 @@ const CharacterController = ({ cameraControlsRef }) => {
       ref={rigidBodyRef}
       colliders={false}
       lockRotations
-      position={[0, 0, -1]}
+      type="dynamic"
+      position={[0,0, -1]}
+      restitution={0}
+      friction={1}
     >
-      <CuboidCollider args={[0.7, 2.8, 0.5]} position={[0, 2.8, 0]} />
+      {/* ==================== COLLIDER LƯỜI TOÀN THÂN ==================== */}
+      <CapsuleCollider
+        args={[1.4, 1.9]} 
+        position={[0, 3.33, 0]}
+      />
+
+      {/* ==================== MODEL NHÂN VẬT ==================== */}
       <group ref={characterRef}>
-        <Character modelPath={SPIDERMAN_MODEL} animation={animation} scale={0.6} />
+        <Character
+          modelPath={SPIDERMAN_MODEL}
+          animation={animation}
+          scale={0.6}
+        />
       </group>
     </RigidBody>
   );

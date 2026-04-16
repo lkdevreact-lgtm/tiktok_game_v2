@@ -1,6 +1,10 @@
 import { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
-import { CuboidCollider, RigidBody } from "@react-three/rapier";
+import {
+  CapsuleCollider,
+  CuboidCollider,
+  RigidBody,
+} from "@react-three/rapier";
 import Character from "./ui/Character";
 import { Vector3 } from "three";
 import { gameState } from "../stores/gameStore";
@@ -82,13 +86,14 @@ const VenomController = () => {
       punchTimer.current = setTimeout(() => {
         gameState.venom.isAttacking = false;
         gameState.venom.attackType = null;
-        // Cooldown before next action
+        setAnimation("Idle");
+        // Cooldown before next punch
         setTimeout(() => {
           punchLock.current = false;
         }, PUNCH_COOLDOWN - PUNCH_DURATION);
       }, PUNCH_DURATION);
     } else if (punchLock.current) {
-      // Stay still while punching
+      // Stay still while punching/cooldown
       rigidBodyRef.current.setLinvel({ x: 0, y: velocity.y, z: 0 }, true);
     }
   });
@@ -100,7 +105,7 @@ const VenomController = () => {
       lockRotations
       position={[8, 0, -1]}
     >
-      <CuboidCollider args={[0.7, 2.8, 0.5]} position={[0, 2.8, 0]} />
+      <CuboidCollider args={[1, 2.8, 0.5]} position={[0.5, 2.8, 0]} />
       <group ref={characterRef}>
         <Character
           modelPath={VENOM_MODEL}
