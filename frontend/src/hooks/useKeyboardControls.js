@@ -27,6 +27,7 @@ export const useKeyboardControls = () => {
 
   useEffect(() => {
     const onKeyDown = (e) => {
+      if (e.repeat) return; // Chặn auto-repeat khi giữ phím
       const action = KEY_MAP[e.code];
       if (action) keys.current[action] = true;
     };

@@ -8,7 +8,9 @@ import {
 } from "@react-three/rapier";
 import Character from "./ui/Character";
 import { Vector3 } from "three";
-import { gameState } from "../stores/gameStore";
+import { useAtomValue } from "jotai";
+import { gameState, gameOverAtom } from "../stores/gameStore";
+
 
 const VENOM_MODEL = "models/character/Venom.glb";
 const MOVE_SPEED = 30;
@@ -26,9 +28,22 @@ const VenomController = () => {
   const punchLock = useRef(false);
   const punchTimer = useRef(null);
   const isDead = useRef(false);
+  const gameOver = useAtomValue(gameOverAtom);
+  const prevGameOver = useRef(false);
 
   useFrame(() => {
     if (!rigidBodyRef.current) return;
+
+    // Reset khi Play Again
+    if (prevGameOver.current && !gameOver) {
+      isDead.current = false;
+      punchLock.current = false;
+      clearTimeout(punchTimer.current);
+      rigidBodyRef.current.setTranslation({ x: -20, y: 5, z: 50 }, true);
+      rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      prevGameOver.current = false;
+    }
+    prevGameOver.current = gameOver;
 
     // Check if dead
     const venomHp = gameState.venom.hp ?? 100;

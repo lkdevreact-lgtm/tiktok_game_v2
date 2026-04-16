@@ -10,7 +10,7 @@ import {
 import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import Character from "./ui/Character";
 import { Vector3 } from "three";
-import { useSetAtom } from "jotai";
+import { useSetAtom, useAtomValue } from "jotai";
 import {
   spidermanHpAtom,
   venomHpAtom,
@@ -37,6 +37,7 @@ const CharacterController = ({ cameraControlsRef }) => {
   const jumpTimer = useRef(null);
   const punchTimer = useRef(null);
   const kickTimer = useRef(null);
+  const prevKeys = useRef({ punch: false, kick: false, jump: false });
   const hpRef = useRef(100);
   const isDead = useRef(false);
 
@@ -44,6 +45,9 @@ const CharacterController = ({ cameraControlsRef }) => {
   const setVenomHp = useSetAtom(venomHpAtom);
   const setGameOver = useSetAtom(gameOverAtom);
   const setWinner = useSetAtom(winnerAtom);
+  const gameOver = useAtomValue(gameOverAtom);
+
+  const prevGameOver = useRef(false);
 
   const takeDamage = useCallback(
     (amount) => {
@@ -76,6 +80,22 @@ const CharacterController = ({ cameraControlsRef }) => {
 
   useFrame(() => {
     if (!rigidBodyRef.current) return;
+
+    // Reset khi Play Again (gameOver chuyển từ true -> false)
+    if (prevGameOver.current && !gameOver) {
+      isDead.current = false;
+      hpRef.current = 100;
+      jumpLock.current = false;
+      punchLock.current = false;
+      kickLock.current = false;
+      clearTimeout(jumpTimer.current);
+      clearTimeout(punchTimer.current);
+      clearTimeout(kickTimer.current);
+      rigidBodyRef.current.setTranslation({ x: -30, y: 10, z: 400 }, true);
+      rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      prevGameOver.current = false;
+    }
+    prevGameOver.current = gameOver;
 
     // Dead state
     if (isDead.current) {
@@ -135,8 +155,16 @@ const CharacterController = ({ cameraControlsRef }) => {
     gameState.spiderman.position.y = pos.y;
     gameState.spiderman.position.z = pos.z;
 
+    // --- Edge detection: chỉ trigger khi nhấn lần đầu ---
+    const justPressedJump = keys.current.jump && !prevKeys.current.jump;
+    const justPressedPunch = keys.current.punch && !prevKeys.current.punch;
+    const justPressedKick = keys.current.kick && !prevKeys.current.kick;
+    prevKeys.current.jump = keys.current.jump;
+    prevKeys.current.punch = keys.current.punch;
+    prevKeys.current.kick = keys.current.kick;
+
     // --- Animation priority ---
-    if (keys.current.jump && !jumpLock.current) {
+    if (justPressedJump && !jumpLock.current) {
       jumpLock.current = true;
       setAnimation("Jump");
       gameState.spiderman.isAttacking = false;
@@ -146,7 +174,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         jumpLock.current = false;
       }, 1200);
     } else if (
-      keys.current.punch &&
+      justPressedPunch &&
       !isMoving &&
       !punchLock.current &&
       !jumpLock.current &&
@@ -164,7 +192,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         gameState.spiderman.attackType = null;
       }, 800);
     } else if (
-      keys.current.kick &&
+      justPressedKick &&
       !isMoving &&
       !kickLock.current &&
       !jumpLock.current &&
@@ -236,8 +264,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       friction={1}
     >
       <CapsuleCollider
-        args={[8.4, 7]}
-        position={[0, 15.4, 0]}
+        args={[8.4, 6.5]}
+        position={[0, 15, 0]}
         collisionGroups={interactionGroups([0], [1])}
       />
 
