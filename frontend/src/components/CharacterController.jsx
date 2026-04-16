@@ -11,16 +11,20 @@ const CAMERA_OFFSET = { x: -15, y: 10, z: -5 };
 const CharacterController = ({ cameraControlsRef }) => {
   const rigidBodyRef = useRef();
   const characterRef = useRef();
-  const [animation, setAnimation] = useState("wait");
+  const [animation, setAnimation] = useState("Idle");
   const keys = useKeyboardControls();
   const camera = useThree((state) => state.camera);
+
+  const jumpLock = useRef(false);
+  const punchLock = useRef(false);
+  const jumpTimer = useRef(null);
+  const punchTimer = useRef(null);
 
   useFrame(() => {
     if (!rigidBodyRef.current) return;
 
     const velocity = rigidBodyRef.current.linvel();
 
-    // Tính hướng forward/right của camera trên mặt phẳng XZ
     const camForward = new Vector3();
     camera.getWorldDirection(camForward);
     camForward.y = 0;
@@ -37,7 +41,6 @@ const CharacterController = ({ cameraControlsRef }) => {
     if (keys.current.left) { moveX -= camRight.x; moveZ -= camRight.z; }
     if (keys.current.right) { moveX += camRight.x; moveZ += camRight.z; }
 
-    // Normalize để di chuyển chéo không nhanh hơn
     const length = Math.sqrt(moveX * moveX + moveZ * moveZ);
     if (length > 0) {
       moveX = (moveX / length) * MOVE_SPEED;
@@ -48,13 +51,33 @@ const CharacterController = ({ cameraControlsRef }) => {
 
     rigidBodyRef.current.setLinvel({ x: moveX, y: velocity.y, z: moveZ }, true);
 
-    // Rotate character to face movement direction
     if (isMoving && characterRef.current) {
       const angle = Math.atan2(moveX, moveZ);
       characterRef.current.rotation.y = angle;
     }
 
-    setAnimation(isMoving ? "run" : "wait");
+    // Handle Jump (Space) - one-shot, highest priority
+    if (keys.current.jump && !jumpLock.current) {
+      jumpLock.current = true;
+      setAnimation("Jump");
+      clearTimeout(jumpTimer.current);
+      jumpTimer.current = setTimeout(() => {
+        jumpLock.current = false;
+      }, 1200);
+    }
+    // Handle Punch (Q) - one-shot, second priority
+    else if (keys.current.punch && !punchLock.current && !jumpLock.current) {
+      punchLock.current = true;
+      setAnimation("Punch");
+      clearTimeout(punchTimer.current);
+      punchTimer.current = setTimeout(() => {
+        punchLock.current = false;
+      }, 800);
+    }
+    // Movement or Idle
+    else if (!jumpLock.current && !punchLock.current) {
+      setAnimation(isMoving ? "Run" : "Idle");
+    }
 
     // Camera follow character
     if (cameraControlsRef?.current) {

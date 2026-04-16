@@ -9,6 +9,8 @@ const KEY_MAP = {
   ArrowDown: "backward",
   ArrowLeft: "left",
   ArrowRight: "right",
+  KeyQ: "punch",
+  Space: "jump",
 };
 
 export const useKeyboardControls = () => {
@@ -17,6 +19,8 @@ export const useKeyboardControls = () => {
     backward: false,
     left: false,
     right: false,
+    punch: false,
+    jump: false,
   });
 
   useEffect(() => {
