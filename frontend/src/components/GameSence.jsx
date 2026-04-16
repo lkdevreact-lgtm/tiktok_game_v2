@@ -18,15 +18,16 @@ const GameSence = () => {
 
   const adjustCamera = () => {
     const distFactor =
-      1 /
+      10 /
       viewport.getCurrentViewport(
         cameraRefernceRef.current,
         new Vector3(0, 0, 0),
       ).width;
+      //  console.log("📷 distFactor:", distFactor, "=> gốc cần gắn:", { x: -37 / distFactor, y: 2.46 / distFactor, z: 4.76 / distFactor });
     controlsRef.current.setLookAt(
-      -0.09 * distFactor,
-      0.1 * distFactor,
-      2.8 * distFactor,
+      -70 * distFactor,
+      4.65 * distFactor,
+      9 * distFactor,
       0,
       0,
       0,
@@ -34,12 +35,14 @@ const GameSence = () => {
     );
   };
 
+
   useEffect(() => {
     const onResize = () => {
       adjustCamera();
     };
     adjustCamera();
     window.addEventListener("resize", onResize);
+    
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
@@ -49,7 +52,7 @@ const GameSence = () => {
       <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} />
       <CameraControls ref={controlsRef} />
       <Physics debug>
-        <CharacterController /> 
+        <CharacterController  cameraControlsRef={controlsRef}/> 
         {/* cameraControlsRef={controlsRef} */}
         <RigidBody type="fixed" colliders="trimesh" position={[7, -0.3, 10]} scale={1}>
           <MapStreet />
