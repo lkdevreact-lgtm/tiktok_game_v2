@@ -17,8 +17,10 @@ const CharacterController = ({ cameraControlsRef }) => {
 
   const jumpLock = useRef(false);
   const punchLock = useRef(false);
+  const kickLock = useRef(false);
   const jumpTimer = useRef(null);
   const punchTimer = useRef(null);
+  const kickTimer = useRef(null);
 
   useFrame(() => {
     if (!rigidBodyRef.current) return;
@@ -66,7 +68,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       }, 1200);
     }
     // Handle Punch (Q) - one-shot, second priority
-    else if (keys.current.punch && !punchLock.current && !jumpLock.current) {
+    else if (keys.current.punch && !punchLock.current && !jumpLock.current && !kickLock.current) {
       punchLock.current = true;
       setAnimation("Punch");
       clearTimeout(punchTimer.current);
@@ -74,8 +76,17 @@ const CharacterController = ({ cameraControlsRef }) => {
         punchLock.current = false;
       }, 800);
     }
+    // Handle Kick (R) - one-shot, third priority
+    else if (keys.current.kick && !kickLock.current && !jumpLock.current && !punchLock.current) {
+      kickLock.current = true;
+      setAnimation("Kick");
+      clearTimeout(kickTimer.current);
+      kickTimer.current = setTimeout(() => {
+        kickLock.current = false;
+      }, 1000);
+    }
     // Movement or Idle
-    else if (!jumpLock.current && !punchLock.current) {
+    else if (!jumpLock.current && !punchLock.current && !kickLock.current) {
       setAnimation(isMoving ? "Run" : "Idle");
     }
 

@@ -10,6 +10,7 @@ const KEY_MAP = {
   ArrowLeft: "left",
   ArrowRight: "right",
   KeyQ: "punch",
+  KeyR: "kick",
   Space: "jump",
 };
 
@@ -20,6 +21,7 @@ export const useKeyboardControls = () => {
     left: false,
     right: false,
     punch: false,
+    kick: false,
     jump: false,
   });
 

@@ -4,7 +4,7 @@ import { AnimationMixer, FrontSide, LoopOnce } from "three";
 
 const MODEL_PATH = "models/character/Spiderman.glb";
 
-const ONE_SHOT_ANIMATIONS = new Set(["Punch", "Jump"]);
+const ONE_SHOT_ANIMATIONS = new Set(["Punch", "Kick", "Jump"]);
 
 const Character = ({ animation = "Idle" }) => {
   const group = useRef();
