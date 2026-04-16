@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import {
   CameraControls,
+  Environment,
   OrbitControls,
   PerspectiveCamera,
 } from "@react-three/drei";
@@ -47,6 +48,7 @@ const GameSence = () => {
   return (
     <group>
       <ambientLight intensity={2} />
+      <Environment preset="city" />
       <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} />
       <CameraControls ref={controlsRef} />
       <Physics debug>
