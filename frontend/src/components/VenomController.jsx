@@ -14,7 +14,7 @@ import { gameState, gameOverAtom } from "../stores/gameStore";
 
 const VENOM_MODEL = "models/character/Venom.glb";
 const MOVE_SPEED = 30;
-const ATTACK_RANGE = 20;
+const ATTACK_RANGE = 18;
 const PUNCH_DURATION = 900; // ms
 const PUNCH_COOLDOWN = 1500; // ms between punches
 
@@ -80,18 +80,21 @@ const VenomController = () => {
       characterRef.current.rotation.y = angle;
     }
 
+    // Clamp Y velocity: không cho bị đẩy lên quá cao khi va bậc thềm
+    const clampedY = Math.min(velocity.y, 15);
+
     // AI behavior
     if (dist > ATTACK_RANGE && !punchLock.current) {
       // Run toward Spiderman
       const nx = (dx / dist) * MOVE_SPEED;
       const nz = (dz / dist) * MOVE_SPEED;
-      rigidBodyRef.current.setLinvel({ x: nx, y: velocity.y, z: nz }, true);
+      rigidBodyRef.current.setLinvel({ x: nx, y: clampedY, z: nz }, true);
       setAnimation("Run");
       gameState.venom.isAttacking = false;
       gameState.venom.attackType = null;
     } else if (dist <= ATTACK_RANGE && !punchLock.current) {
       // Punch!
-      rigidBodyRef.current.setLinvel({ x: 0, y: velocity.y, z: 0 }, true);
+      rigidBodyRef.current.setLinvel({ x: 0, y: clampedY, z: 0 }, true);
       punchLock.current = true;
       setAnimation("Punch");
       gameState.venom.isAttacking = true;
@@ -110,7 +113,7 @@ const VenomController = () => {
       }, PUNCH_DURATION);
     } else if (punchLock.current) {
       // Stay still while punching/cooldown
-      rigidBodyRef.current.setLinvel({ x: 0, y: velocity.y, z: 0 }, true);
+      rigidBodyRef.current.setLinvel({ x: 0, y: clampedY, z: 0 }, true);
     }
   });
 

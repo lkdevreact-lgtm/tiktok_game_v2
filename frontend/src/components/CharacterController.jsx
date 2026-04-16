@@ -23,6 +23,7 @@ const MOVE_SPEED = 40;
 const CAMERA_OFFSET = { x: 20, y: 20, z: -80 };
 const SPIDERMAN_MODEL = "models/character/Spiderman.glb";
 const ATTACK_RANGE = 20;
+const SPIDERMAN_ONE_SHOTS = ["Punch", "Kick", "Jump", "Die"];
 
 const CharacterController = ({ cameraControlsRef }) => {
   const rigidBodyRef = useRef();
@@ -142,7 +143,16 @@ const CharacterController = ({ cameraControlsRef }) => {
 
     const isMoving = length > 0;
 
-    rigidBodyRef.current.setLinvel({ x: moveX, y: velocity.y, z: moveZ }, true);
+    // Clamp Y velocity: không cho bị đẩy lên quá cao khi va bậc thềm
+    let finalY = velocity.y;
+    if (finalY > 0) {
+      // Đang đi lên → giữ clamp thấp để không bay cao khi va bậc thang
+      finalY = Math.min(finalY, 3);
+    } else {
+      // Đang rơi xuống → cho phép rơi nhanh (không để chậm nữa)
+      finalY = Math.max(finalY, -102); // -52 là giá trị tốt để thử đầu tiên
+    }
+    rigidBodyRef.current.setLinvel({ x: moveX, y: finalY, z: moveZ }, true);
 
     if (isMoving && characterRef.current) {
       const angle = Math.atan2(moveX, moveZ);
@@ -259,7 +269,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       colliders={false}
       lockRotations
       type="dynamic"
-      position={[-30,10, 400]}
+      position={[-30, 10, 400]}
       restitution={0}
       friction={1}
     >
@@ -273,7 +283,8 @@ const CharacterController = ({ cameraControlsRef }) => {
         <Character
           modelPath={SPIDERMAN_MODEL}
           animation={animation}
-          scale={3}
+          scale={13}
+          oneShotList={SPIDERMAN_ONE_SHOTS}
         />
       </group>
     </RigidBody>
