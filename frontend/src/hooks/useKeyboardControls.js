@@ -35,11 +35,22 @@ export const useKeyboardControls = () => {
       if (action) keys.current[action] = false;
     };
 
+    // Reset tất cả key khi mất focus — tránh key bị stuck
+    const resetAll = () => {
+      for (const key in keys.current) {
+        keys.current[key] = false;
+      }
+    };
+
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", resetAll);
+    document.addEventListener("visibilitychange", resetAll);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", resetAll);
+      document.removeEventListener("visibilitychange", resetAll);
     };
   }, []);
 

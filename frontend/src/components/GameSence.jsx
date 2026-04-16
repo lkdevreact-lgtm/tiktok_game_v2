@@ -49,17 +49,17 @@ const GameSence = () => {
     <group>
       <ambientLight intensity={2} />
       <Environment preset="city" />
-      <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} />
+      <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} near={0.5} far={5000} />
       <CameraControls ref={controlsRef} />
-      <Physics debug>
-        <CharacterController  />
+      <Physics debug gravity={[0,-9.81,0]}>
+        <CharacterController />
         {/* cameraControlsRef={controlsRef} */}
         {/* <VenomController /> */}
-        <RigidBody type="fixed" colliders="trimesh" position={[7, -0.3, 10]} scale={1}>
+        <RigidBody type="fixed" colliders="trimesh" position={[7, -0.3, 10]} scale={0.05}>
           <MapStreet />
         </RigidBody>
         <RigidBody type="fixed" colliders={false}>
-          <CuboidCollider args={[35, 0.1, 20]} position={[7, -0.35, 0]} />
+          <CuboidCollider args={[350, 0.1, 20]} position={[7, -5.5, 0]} />
         </RigidBody>
       </Physics>
     </group>

@@ -18,8 +18,8 @@ import {
   gameState,
 } from "../stores/gameStore";
 
-const MOVE_SPEED = 5;
-const CAMERA_OFFSET = { x: -15, y: 10, z: -5 };
+const MOVE_SPEED = 40;
+const CAMERA_OFFSET = { x: 10, y: 15, z: -80 };
 const SPIDERMAN_MODEL = "models/character/Spiderman.glb";
 const ATTACK_RANGE = 2.5;
 
@@ -234,18 +234,16 @@ const CharacterController = ({ cameraControlsRef }) => {
       restitution={0}
       friction={1}
     >
-      {/* ==================== COLLIDER LƯỜI TOÀN THÂN ==================== */}
       <CapsuleCollider
-        args={[1.4, 1.9]} 
-        position={[0, 3.33, 0]}
+        args={[8.4, 7]} 
+        position={[0, 15.33, 0]}
       />
 
-      {/* ==================== MODEL NHÂN VẬT ==================== */}
       <group ref={characterRef}>
         <Character
           modelPath={SPIDERMAN_MODEL}
           animation={animation}
-          scale={0.6}
+          scale={3}
         />
       </group>
     </RigidBody>

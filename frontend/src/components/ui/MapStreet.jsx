@@ -1,11 +1,11 @@
 import { useGLTF } from "@react-three/drei";
 
 const MapStreet = () => {
-  const { scene } = useGLTF("models/light_cycle_arena.glb");
+  const { scene } = useGLTF("models/modern_city_block.glb");
 
   return <primitive object={scene} />;
 };
 
-useGLTF.preload("models/map_city.glb");
+useGLTF.preload("models/modern_city_block.glb");
 
 export default MapStreet;

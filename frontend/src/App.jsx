@@ -6,7 +6,7 @@ import HealthBarHUD from './components/ui/HealthBarHUD'
 const App = () => {
   return (
     <div className="relative w-screen h-screen">
-      <Canvas camera={{position:[3,3,3], fov: 50}}>
+      <Canvas camera={{position:[3,3,3], fov: 50, near: 0.5, far: 5000}}>
         <color attach="background" args={["#87CEEB"]} />
         <GameSence />
       </Canvas>
