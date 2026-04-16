@@ -1,12 +1,16 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { CuboidCollider, RigidBody } from "@react-three/rapier";
 import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import Character from "./ui/Character";
 import { Vector3 } from "three";
+import { useSetAtom } from "jotai";
+import { spidermanHpAtom, venomHpAtom, gameOverAtom, winnerAtom, gameState } from "../stores/gameStore";
 
 const MOVE_SPEED = 5;
 const CAMERA_OFFSET = { x: -15, y: 10, z: -5 };
+const SPIDERMAN_MODEL = "models/character/Spiderman.glb";
+const ATTACK_RANGE = 2.5;
 
 const CharacterController = ({ cameraControlsRef }) => {
   const rigidBodyRef = useRef();
@@ -21,9 +25,46 @@ const CharacterController = ({ cameraControlsRef }) => {
   const jumpTimer = useRef(null);
   const punchTimer = useRef(null);
   const kickTimer = useRef(null);
+  const hpRef = useRef(100);
+  const isDead = useRef(false);
+
+  const setSpidermanHp = useSetAtom(spidermanHpAtom);
+  const setVenomHp = useSetAtom(venomHpAtom);
+  const setGameOver = useSetAtom(gameOverAtom);
+  const setWinner = useSetAtom(winnerAtom);
+
+  const takeDamage = useCallback((amount) => {
+    if (isDead.current) return;
+    hpRef.current = Math.max(0, hpRef.current - amount);
+    setSpidermanHp(hpRef.current);
+    if (hpRef.current <= 0) {
+      isDead.current = true;
+      setGameOver(true);
+      setWinner("Venom");
+    }
+  }, [setSpidermanHp, setGameOver, setWinner]);
+
+  const dealDamageToVenom = useCallback((amount) => {
+    const venomState = gameState.venom;
+    const currentHp = venomState.hp ?? 100;
+    const newHp = Math.max(0, currentHp - amount);
+    venomState.hp = newHp;
+    setVenomHp(newHp);
+    if (newHp <= 0) {
+      setGameOver(true);
+      setWinner("Spiderman");
+    }
+  }, [setVenomHp, setGameOver, setWinner]);
 
   useFrame(() => {
     if (!rigidBodyRef.current) return;
+
+    // Dead state
+    if (isDead.current) {
+      rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      setAnimation("Die");
+      return;
+    }
 
     const velocity = rigidBodyRef.current.linvel();
 
@@ -58,41 +99,79 @@ const CharacterController = ({ cameraControlsRef }) => {
       characterRef.current.rotation.y = angle;
     }
 
-    // Handle Jump (Space) - one-shot, highest priority
+    // Update shared position
+    const pos = rigidBodyRef.current.translation();
+    gameState.spiderman.position.x = pos.x;
+    gameState.spiderman.position.y = pos.y;
+    gameState.spiderman.position.z = pos.z;
+
+    // --- Animation priority ---
     if (keys.current.jump && !jumpLock.current) {
       jumpLock.current = true;
       setAnimation("Jump");
+      gameState.spiderman.isAttacking = false;
+      gameState.spiderman.attackType = null;
       clearTimeout(jumpTimer.current);
-      jumpTimer.current = setTimeout(() => {
-        jumpLock.current = false;
-      }, 1200);
+      jumpTimer.current = setTimeout(() => { jumpLock.current = false; }, 1200);
     }
-    // Handle Punch (Q) - one-shot, only when not moving
     else if (keys.current.punch && !isMoving && !punchLock.current && !jumpLock.current && !kickLock.current) {
       punchLock.current = true;
       setAnimation("Punch");
+      gameState.spiderman.isAttacking = true;
+      gameState.spiderman.attackType = "Punch";
+      gameState.spiderman.hitDealt = false;
       clearTimeout(punchTimer.current);
       punchTimer.current = setTimeout(() => {
         punchLock.current = false;
+        gameState.spiderman.isAttacking = false;
+        gameState.spiderman.attackType = null;
       }, 800);
     }
-    // Handle Kick (R) - one-shot, only when not moving
     else if (keys.current.kick && !isMoving && !kickLock.current && !jumpLock.current && !punchLock.current) {
       kickLock.current = true;
       setAnimation("Kick");
+      gameState.spiderman.isAttacking = true;
+      gameState.spiderman.attackType = "Kick";
+      gameState.spiderman.hitDealt = false;
       clearTimeout(kickTimer.current);
       kickTimer.current = setTimeout(() => {
         kickLock.current = false;
+        gameState.spiderman.isAttacking = false;
+        gameState.spiderman.attackType = null;
       }, 1000);
     }
-    // Movement or Idle
     else if (!jumpLock.current && !punchLock.current && !kickLock.current) {
       setAnimation(isMoving ? "Run" : "Idle");
     }
 
-    // Camera follow character
+    // --- Spiderman hits Venom ---
+    if (gameState.spiderman.isAttacking && !gameState.spiderman.hitDealt) {
+      const vp = gameState.venom.position;
+      const dx = pos.x - vp.x;
+      const dz = pos.z - vp.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < ATTACK_RANGE) {
+        gameState.spiderman.hitDealt = true;
+        const dmg = gameState.spiderman.attackType === "Kick" ? 5 : 3;
+        dealDamageToVenom(dmg);
+      }
+    }
+
+    // --- Venom hits Spiderman ---
+    if (gameState.venom.isAttacking && !gameState.venom.hitDealt) {
+      const vp = gameState.venom.position;
+      const dx = pos.x - vp.x;
+      const dz = pos.z - vp.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < ATTACK_RANGE) {
+        gameState.venom.hitDealt = true;
+        const dmg = gameState.venom.attackType === "Kick" ? 5 : 3;
+        takeDamage(dmg);
+      }
+    }
+
+    // Camera follow
     if (cameraControlsRef?.current) {
-      const pos = rigidBodyRef.current.translation();
       cameraControlsRef.current.setLookAt(
         pos.x + CAMERA_OFFSET.x,
         pos.y + CAMERA_OFFSET.y,
@@ -114,7 +193,7 @@ const CharacterController = ({ cameraControlsRef }) => {
     >
       <CuboidCollider args={[0.7, 2.8, 0.5]} position={[0, 2.8, 0]} />
       <group ref={characterRef}>
-        <Character animation={animation} />
+        <Character modelPath={SPIDERMAN_MODEL} animation={animation} scale={0.6} />
       </group>
     </RigidBody>
   );

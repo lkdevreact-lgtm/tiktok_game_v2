@@ -5,11 +5,11 @@ import {
   PerspectiveCamera,
 } from "@react-three/drei";
 import { CuboidCollider, MeshCollider, Physics, RigidBody } from "@react-three/rapier";
-import Character from "./ui/Character";
 import MapStreet from "./ui/MapStreet";
 import { useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
 import CharacterController from "./CharacterController";
+import VenomController from "./VenomController";
 
 const GameSence = () => {
   const controlsRef = useRef();
@@ -23,7 +23,6 @@ const GameSence = () => {
         cameraRefernceRef.current,
         new Vector3(0, 0, 0),
       ).width;
-      //  console.log("📷 distFactor:", distFactor, "=> gốc cần gắn:", { x: -37 / distFactor, y: 2.46 / distFactor, z: 4.76 / distFactor });
     controlsRef.current.setLookAt(
       -70 * distFactor,
       4.65 * distFactor,
@@ -35,25 +34,24 @@ const GameSence = () => {
     );
   };
 
-
   useEffect(() => {
     const onResize = () => {
       adjustCamera();
     };
     adjustCamera();
     window.addEventListener("resize", onResize);
-    
+
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
   return (
     <group>
-      <ambientLight intensity={1} />
+      <ambientLight intensity={2} />
       <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} />
       <CameraControls ref={controlsRef} />
       <Physics debug>
-        <CharacterController  cameraControlsRef={controlsRef}/> 
-        {/* cameraControlsRef={controlsRef} */}
+        <CharacterController cameraControlsRef={controlsRef} />
+        <VenomController />
         <RigidBody type="fixed" colliders="trimesh" position={[7, -0.3, 10]} scale={1}>
           <MapStreet />
         </RigidBody>
