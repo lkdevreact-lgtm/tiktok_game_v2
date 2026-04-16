@@ -67,8 +67,8 @@ const CharacterController = ({ cameraControlsRef }) => {
         jumpLock.current = false;
       }, 1200);
     }
-    // Handle Punch (Q) - one-shot, second priority
-    else if (keys.current.punch && !punchLock.current && !jumpLock.current && !kickLock.current) {
+    // Handle Punch (Q) - one-shot, only when not moving
+    else if (keys.current.punch && !isMoving && !punchLock.current && !jumpLock.current && !kickLock.current) {
       punchLock.current = true;
       setAnimation("Punch");
       clearTimeout(punchTimer.current);
@@ -76,8 +76,8 @@ const CharacterController = ({ cameraControlsRef }) => {
         punchLock.current = false;
       }, 800);
     }
-    // Handle Kick (R) - one-shot, third priority
-    else if (keys.current.kick && !kickLock.current && !jumpLock.current && !punchLock.current) {
+    // Handle Kick (R) - one-shot, only when not moving
+    else if (keys.current.kick && !isMoving && !kickLock.current && !jumpLock.current && !punchLock.current) {
       kickLock.current = true;
       setAnimation("Kick");
       clearTimeout(kickTimer.current);
