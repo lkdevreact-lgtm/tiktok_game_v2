@@ -4,6 +4,7 @@ import {
   CapsuleCollider,
   CuboidCollider,
   RigidBody,
+  interactionGroups,
 } from "@react-three/rapier";
 import Character from "./ui/Character";
 import { Vector3 } from "three";
@@ -11,7 +12,7 @@ import { gameState } from "../stores/gameStore";
 
 const VENOM_MODEL = "models/character/Venom.glb";
 const MOVE_SPEED = 30;
-const ATTACK_RANGE = 2;
+const ATTACK_RANGE = 20;
 const PUNCH_DURATION = 900; // ms
 const PUNCH_COOLDOWN = 1500; // ms between punches
 
@@ -105,7 +106,7 @@ const VenomController = () => {
       lockRotations
       position={[-20, 5, 50]}
     >
-      <CapsuleCollider args={[8.9, 10]} position={[0, 18, 0]} />
+      <CapsuleCollider args={[8.9, 10]} position={[0, 18, 0]} collisionGroups={interactionGroups([0], [1])} />
       <group ref={characterRef}>
         <Character
           modelPath={VENOM_MODEL}

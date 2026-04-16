@@ -5,6 +5,7 @@ import {
   CapsuleCollider,
   CuboidCollider,
   RigidBody,
+  interactionGroups,
 } from "@react-three/rapier";
 import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import Character from "./ui/Character";
@@ -21,7 +22,7 @@ import {
 const MOVE_SPEED = 40;
 const CAMERA_OFFSET = { x: 20, y: 20, z: -80 };
 const SPIDERMAN_MODEL = "models/character/Spiderman.glb";
-const ATTACK_RANGE = 2.5;
+const ATTACK_RANGE = 20;
 
 const CharacterController = ({ cameraControlsRef }) => {
   const rigidBodyRef = useRef();
@@ -235,8 +236,9 @@ const CharacterController = ({ cameraControlsRef }) => {
       friction={1}
     >
       <CapsuleCollider
-        args={[8.4, 7]} 
+        args={[8.4, 7]}
         position={[0, 15.4, 0]}
+        collisionGroups={interactionGroups([0], [1])}
       />
 
       <group ref={characterRef}>

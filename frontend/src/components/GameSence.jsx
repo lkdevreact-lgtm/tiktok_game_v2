@@ -5,7 +5,7 @@ import {
   OrbitControls,
   PerspectiveCamera,
 } from "@react-three/drei";
-import { CuboidCollider, MeshCollider, Physics, RigidBody } from "@react-three/rapier";
+import { CuboidCollider, MeshCollider, Physics, RigidBody, interactionGroups } from "@react-three/rapier";
 import MapStreet from "./ui/MapStreet";
 import { useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
@@ -57,10 +57,10 @@ const GameSence = () => {
         <CharacterController cameraControlsRef={controlsRef}/>
         {/* cameraControlsRef={controlsRef} */}
         <VenomController />
-        <RigidBody type="fixed" colliders="trimesh" position={[7, -0.3, 10]} scale={0.05}>
+        <RigidBody type="fixed" colliders="trimesh" position={[7, -0.3, 10]} scale={0.05} collisionGroups={interactionGroups([1], [0])}>
           <MapStreet />
         </RigidBody>
-        <RigidBody type="fixed" colliders={false}>
+        <RigidBody type="fixed" colliders={false} collisionGroups={interactionGroups([1], [0])}>
           <CuboidCollider args={[350, 0.1, 20]} position={[7, -5.5, 0]} />
         </RigidBody>
       </Physics>
