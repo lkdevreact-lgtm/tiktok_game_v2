@@ -16,12 +16,14 @@ import {
   gameOverAtom,
   winnerAtom,
   gameState,
+  blockIfTooClose,
+  CHAR_BLOCK_RADIUS,
 } from "../stores/gameStore";
 
 const MOVE_SPEED = 13;
 const CAMERA_OFFSET = { x: 10, y: 5, z: -20 };
 const SPIDERMAN_MODEL = "models/character/Spiderman.glb";
-const ATTACK_RANGE = 20;
+const ATTACK_RANGE = 5;
 const SPIDERMAN_ONE_SHOTS = [
   "Punch",
   "Kick",
@@ -204,6 +206,20 @@ const CharacterController = ({ cameraControlsRef }) => {
     } else {
       // Đang rơi xuống → cho phép rơi nhanh (không để chậm nữa)
       finalY = Math.max(finalY, -102); // -52 là giá trị tốt để thử đầu tiên
+    }
+    // Anti-overlap: chặn component velocity hướng về venom đang ở quá gần
+    const curPos = rigidBodyRef.current.translation();
+    for (const entry of gameState.venoms) {
+      if (entry.hp <= 0) continue;
+      [moveX, moveZ] = blockIfTooClose(
+        curPos.x,
+        curPos.z,
+        moveX,
+        moveZ,
+        entry.position.x,
+        entry.position.z,
+        CHAR_BLOCK_RADIUS,
+      );
     }
     rigidBodyRef.current.setLinvel({ x: moveX, y: finalY, z: moveZ }, true);
 

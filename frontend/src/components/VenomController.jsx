@@ -7,11 +7,16 @@ import {
 } from "@react-three/rapier";
 import Character from "./ui/Character";
 import { useAtomValue } from "jotai";
-import { gameState, gameOverAtom } from "../stores/gameStore";
+import {
+  gameState,
+  gameOverAtom,
+  blockIfTooClose,
+  CHAR_BLOCK_RADIUS,
+} from "../stores/gameStore";
 
 const VENOM_MODEL = "models/character/Venom.glb";
 const MOVE_SPEED = 10;
-const ATTACK_RANGE = 4;
+const ATTACK_RANGE = 6;
 const PUNCH_DURATION = 900;
 const PUNCH_COOLDOWN = 1500;
 const DIE_ANIM_HOLD = 1500; // giữ animation Die trước khi fade
@@ -119,8 +124,30 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
     }
 
     if (dist > ATTACK_RANGE && !punchLock.current) {
-      const nx = (dx / dist) * MOVE_SPEED;
-      const nz = (dz / dist) * MOVE_SPEED;
+      let nx = (dx / dist) * MOVE_SPEED;
+      let nz = (dz / dist) * MOVE_SPEED;
+      // Anti-overlap: chặn với Spiderman + các venom khác
+      [nx, nz] = blockIfTooClose(
+        venomPos.x,
+        venomPos.z,
+        nx,
+        nz,
+        spiderPos.x,
+        spiderPos.z,
+        CHAR_BLOCK_RADIUS,
+      );
+      for (const other of gameState.venoms) {
+        if (other === entry || other.hp <= 0) continue;
+        [nx, nz] = blockIfTooClose(
+          venomPos.x,
+          venomPos.z,
+          nx,
+          nz,
+          other.position.x,
+          other.position.z,
+          CHAR_BLOCK_RADIUS,
+        );
+      }
       rigidBodyRef.current.setLinvel({ x: nx, y: clampedY, z: nz }, true);
       setAnimation("Run");
       entry.isAttacking = false;
