@@ -15,8 +15,9 @@ import {
 } from "../stores/gameStore";
 
 const VENOM_MODEL = "models/character/Venom.glb";
+const VENOM_SPAWN_SOUND = "sound/sound_venom.mp3";
 const MOVE_SPEED = 10;
-const ATTACK_RANGE = 6;
+const ATTACK_RANGE = 5;
 const PUNCH_DURATION = 900;
 const PUNCH_COOLDOWN = 1500;
 const DIE_ANIM_HOLD = 1500; // giữ animation Die trước khi fade
@@ -38,6 +39,13 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
   const entryRef = useRef(null);
   const dieStartRef = useRef(0);
   const [opacity, setOpacity] = useState(1);
+
+  // Play spawn sound khi Venom xuất hiện
+  useEffect(() => {
+    const audio = new Audio(VENOM_SPAWN_SOUND);
+    audio.volume = 0.5;
+    audio.play().catch(() => {});
+  }, []);
 
   useEffect(() => {
     const entry = {

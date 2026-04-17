@@ -8,6 +8,7 @@ import {
 } from "@react-three/rapier";
 import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import Character from "./ui/Character";
+import FloatingDamage from "./ui/FloatingDamage";
 import { Vector3 } from "three";
 import { useSetAtom, useAtomValue } from "jotai";
 import {
@@ -40,6 +41,8 @@ const CharacterController = ({ cameraControlsRef }) => {
   const rigidBodyRef = useRef();
   const characterRef = useRef();
   const [animation, setAnimation] = useState("Idle");
+  const [damagePopups, setDamagePopups] = useState([]);
+  const damageIdRef = useRef(0);
   const keys = useKeyboardControls();
   const { world, rapier } = useRapier();
 
@@ -340,20 +343,39 @@ const CharacterController = ({ cameraControlsRef }) => {
       setAnimation(isMoving ? "Run" : "Idle");
     }
 
-    // --- Spiderman hits all Venoms in range ---
+    // --- Spiderman hits closest Venom in range ---
     if (gameState.spiderman.isAttacking && !gameState.spiderman.hitDealt) {
       const dmg = SPIDERMAN_DAMAGE[gameState.spiderman.attackType] ?? 1;
-      let didHit = false;
+      let closestEntry = null;
+      let closestDist = ATTACK_RANGE;
       for (const entry of gameState.venoms) {
         if (entry.hp <= 0) continue;
         const dx = pos.x - entry.position.x;
         const dz = pos.z - entry.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < ATTACK_RANGE) {
-          dealDamageToVenom(entry, dmg);
-          didHit = true;
+        const d = Math.sqrt(dx * dx + dz * dz);
+        if (d < closestDist) {
+          closestDist = d;
+          closestEntry = entry;
         }
       }
-      if (didHit) gameState.spiderman.hitDealt = true;
+      if (closestEntry) {
+        dealDamageToVenom(closestEntry, dmg);
+        gameState.spiderman.hitDealt = true;
+        // Floating damage popup
+        const popupId = damageIdRef.current++;
+        setDamagePopups((prev) => [
+          ...prev,
+          {
+            id: popupId,
+            damage: dmg,
+            position: {
+              x: closestEntry.position.x,
+              y: closestEntry.position.y,
+              z: closestEntry.position.z,
+            },
+          },
+        ]);
+      }
     }
 
     // --- Any Venom hits Spiderman ---
@@ -422,31 +444,48 @@ const CharacterController = ({ cameraControlsRef }) => {
     }
   });
 
-  return (
-    <RigidBody
-      ref={rigidBodyRef}
-      colliders={false}
-      lockRotations
-      type="dynamic"
-      position={[SPIDERMAN_SPAWN.x, SPIDERMAN_SPAWN.y, SPIDERMAN_SPAWN.z]}
-      restitution={0}
-      friction={1}
-    >
-      <CapsuleCollider
-        args={[1.3, 2.5]}
-        position={[0, 3.811, 0]}
-        collisionGroups={interactionGroups([0], [1])}
-      />
+  const handleDamageComplete = useCallback((popupId) => {
+    setDamagePopups((prev) => prev.filter((p) => p.id !== popupId));
+  }, []);
 
-      <group ref={characterRef}>
-        <Character
-          modelPath={SPIDERMAN_MODEL}
-          animation={animation}
-          scale={3}
-          oneShotList={SPIDERMAN_ONE_SHOTS}
+  return (
+    <>
+      <RigidBody
+        ref={rigidBodyRef}
+        colliders={false}
+        lockRotations
+        type="dynamic"
+        position={[SPIDERMAN_SPAWN.x, SPIDERMAN_SPAWN.y, SPIDERMAN_SPAWN.z]}
+        restitution={0}
+        friction={1}
+      >
+        <CapsuleCollider
+          args={[1.3, 2.5]}
+          position={[0, 3.811, 0]}
+          collisionGroups={interactionGroups([0], [1])}
         />
-      </group>
-    </RigidBody>
+
+        <group ref={characterRef}>
+          <Character
+            modelPath={SPIDERMAN_MODEL}
+            animation={animation}
+            scale={3}
+            oneShotList={SPIDERMAN_ONE_SHOTS}
+          />
+        </group>
+      </RigidBody>
+
+      {/* Floating damage popups */}
+      {damagePopups.map((popup) => (
+        <FloatingDamage
+          key={popup.id}
+          id={popup.id}
+          damage={popup.damage}
+          position={popup.position}
+          onComplete={handleDamageComplete}
+        />
+      ))}
+    </>
   );
 };
 
