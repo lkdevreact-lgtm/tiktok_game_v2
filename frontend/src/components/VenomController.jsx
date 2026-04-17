@@ -36,6 +36,7 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
   const isFalling = useRef(true);
   const fallStarted = useRef(false);
   const gameOver = useAtomValue(gameOverAtom);
+  const prevGameOverRef = useRef(false);
   const entryRef = useRef(null);
   const dieStartRef = useRef(0);
   const [opacity, setOpacity] = useState(1);
@@ -67,8 +68,34 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
 
   useFrame(() => {
     if (!rigidBodyRef.current || !entryRef.current) return;
+
+    // Play Again: gameOver chuyển true → false → reset toàn bộ Venom
+    if (prevGameOverRef.current && !gameOver) {
+      const entry = entryRef.current;
+      isDead.current = false;
+      punchLock.current = false;
+      isFalling.current = true;
+      fallStarted.current = false;
+      clearTimeout(punchTimer.current);
+      entry.hp = 15;
+      entry.isAttacking = false;
+      entry.attackType = null;
+      entry.hitDealt = false;
+      setOpacity(1);
+      setAnimation("Idle");
+      prevGameOverRef.current = false;
+    }
+    prevGameOverRef.current = gameOver;
+
+    // Game Over: dừng mọi hành động, chỉ hiển thị Idle
     if (gameOver) {
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      punchLock.current = false;
+      clearTimeout(punchTimer.current);
+      const entry = entryRef.current;
+      entry.isAttacking = false;
+      entry.attackType = null;
+      setAnimation("Idle");
       return;
     }
 
