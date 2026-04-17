@@ -30,7 +30,6 @@ const Bar = ({ hp, name, color, side }) => {
 
 const HealthBarHUD = () => {
   const spidermanHp = useAtomValue(spidermanHpAtom);
-  const venomHp = useAtomValue(venomHpAtom);
   const gameOver = useAtomValue(gameOverAtom);
   const winner = useAtomValue(winnerAtom);
   const setSpidermanHp = useSetAtom(spidermanHpAtom);
@@ -79,15 +78,24 @@ const HealthBarHUD = () => {
         </div>
         <div className="w-px bg-white/20" />
         <div className="flex items-center gap-1.5">
+          <kbd className="px-1.5 py-0.5 bg-pink-500/40 rounded text-white text-xs font-bold">F</kbd>
+          <span className="text-white/70 text-xs">KickMMA</span>
+        </div>
+        <div className="w-px bg-white/20" />
+        <div className="flex items-center gap-1.5">
+          <kbd className="px-1.5 py-0.5 bg-purple-500/40 rounded text-white text-xs font-bold">E</kbd>
+          <span className="text-white/70 text-xs">ComboPunch</span>
+        </div>
+        <div className="w-px bg-white/20" />
+        <div className="flex items-center gap-1.5">
           <kbd className="px-1.5 py-0.5 bg-blue-500/40 rounded text-white text-xs font-bold">Space</kbd>
           <span className="text-white/70 text-xs">Jump</span>
         </div>
       </div>
 
-      {/* Health bars at bottom */}
-      <div className="absolute bottom-6 left-0 right-0 flex justify-between px-8">
+      {/* Health bar at bottom */}
+      <div className="absolute bottom-6 left-0 right-0 flex px-8">
         <Bar hp={spidermanHp} name="SPIDERMAN" color="#3b82f6" side="left" />
-        <Bar hp={venomHp} name="VENOM" color="#a855f7" side="right" />
       </div>
 
       {/* Game over overlay */}

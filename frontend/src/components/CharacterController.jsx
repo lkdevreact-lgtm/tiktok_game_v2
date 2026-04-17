@@ -23,7 +23,15 @@ const MOVE_SPEED = 40;
 const CAMERA_OFFSET = { x: 20, y: 20, z: -80 };
 const SPIDERMAN_MODEL = "models/character/Spiderman.glb";
 const ATTACK_RANGE = 20;
-const SPIDERMAN_ONE_SHOTS = ["Punch", "Kick", "Jump", "Die"];
+const SPIDERMAN_ONE_SHOTS = [
+  "Punch",
+  "Kick",
+  "KickMMA",
+  "ComboPunch",
+  "Jump",
+  "Die",
+];
+const SPIDERMAN_DAMAGE = { Punch: 1, Kick: 1, KickMMA: 3, ComboPunch: 3 };
 
 const CharacterController = ({ cameraControlsRef }) => {
   const rigidBodyRef = useRef();
@@ -35,10 +43,20 @@ const CharacterController = ({ cameraControlsRef }) => {
   const jumpLock = useRef(false);
   const punchLock = useRef(false);
   const kickLock = useRef(false);
+  const kickMMALock = useRef(false);
+  const comboPunchLock = useRef(false);
   const jumpTimer = useRef(null);
   const punchTimer = useRef(null);
   const kickTimer = useRef(null);
-  const prevKeys = useRef({ punch: false, kick: false, jump: false });
+  const kickMMATimer = useRef(null);
+  const comboPunchTimer = useRef(null);
+  const prevKeys = useRef({
+    punch: false,
+    kick: false,
+    kickMMA: false,
+    comboPunch: false,
+    jump: false,
+  });
   const hpRef = useRef(100);
   const isDead = useRef(false);
 
@@ -71,12 +89,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       const newHp = Math.max(0, currentHp - amount);
       venomState.hp = newHp;
       setVenomHp(newHp);
-      if (newHp <= 0) {
-        setGameOver(true);
-        setWinner("Spiderman");
-      }
     },
-    [setVenomHp, setGameOver, setWinner],
+    [setVenomHp],
   );
 
   useFrame(() => {
@@ -89,9 +103,13 @@ const CharacterController = ({ cameraControlsRef }) => {
       jumpLock.current = false;
       punchLock.current = false;
       kickLock.current = false;
+      kickMMALock.current = false;
+      comboPunchLock.current = false;
       clearTimeout(jumpTimer.current);
       clearTimeout(punchTimer.current);
       clearTimeout(kickTimer.current);
+      clearTimeout(kickMMATimer.current);
+      clearTimeout(comboPunchTimer.current);
       rigidBodyRef.current.setTranslation({ x: -30, y: 10, z: 400 }, true);
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
       prevGameOver.current = false;
@@ -169,9 +187,21 @@ const CharacterController = ({ cameraControlsRef }) => {
     const justPressedJump = keys.current.jump && !prevKeys.current.jump;
     const justPressedPunch = keys.current.punch && !prevKeys.current.punch;
     const justPressedKick = keys.current.kick && !prevKeys.current.kick;
+    const justPressedKickMMA =
+      keys.current.kickMMA && !prevKeys.current.kickMMA;
+    const justPressedComboPunch =
+      keys.current.comboPunch && !prevKeys.current.comboPunch;
     prevKeys.current.jump = keys.current.jump;
     prevKeys.current.punch = keys.current.punch;
     prevKeys.current.kick = keys.current.kick;
+    prevKeys.current.kickMMA = keys.current.kickMMA;
+    prevKeys.current.comboPunch = keys.current.comboPunch;
+
+    const anyAttackLock =
+      punchLock.current ||
+      kickLock.current ||
+      kickMMALock.current ||
+      comboPunchLock.current;
 
     // --- Animation priority ---
     if (justPressedJump && !jumpLock.current) {
@@ -186,9 +216,8 @@ const CharacterController = ({ cameraControlsRef }) => {
     } else if (
       justPressedPunch &&
       !isMoving &&
-      !punchLock.current &&
-      !jumpLock.current &&
-      !kickLock.current
+      !anyAttackLock &&
+      !jumpLock.current
     ) {
       punchLock.current = true;
       setAnimation("Punch");
@@ -204,9 +233,8 @@ const CharacterController = ({ cameraControlsRef }) => {
     } else if (
       justPressedKick &&
       !isMoving &&
-      !kickLock.current &&
-      !jumpLock.current &&
-      !punchLock.current
+      !anyAttackLock &&
+      !jumpLock.current
     ) {
       kickLock.current = true;
       setAnimation("Kick");
@@ -219,7 +247,41 @@ const CharacterController = ({ cameraControlsRef }) => {
         gameState.spiderman.isAttacking = false;
         gameState.spiderman.attackType = null;
       }, 1000);
-    } else if (!jumpLock.current && !punchLock.current && !kickLock.current) {
+    } else if (
+      justPressedKickMMA &&
+      !isMoving &&
+      !anyAttackLock &&
+      !jumpLock.current
+    ) {
+      kickMMALock.current = true;
+      setAnimation("KickMMA");
+      gameState.spiderman.isAttacking = true;
+      gameState.spiderman.attackType = "KickMMA";
+      gameState.spiderman.hitDealt = false;
+      clearTimeout(kickMMATimer.current);
+      kickMMATimer.current = setTimeout(() => {
+        kickMMALock.current = false;
+        gameState.spiderman.isAttacking = false;
+        gameState.spiderman.attackType = null;
+      }, 1400);
+    } else if (
+      justPressedComboPunch &&
+      !isMoving &&
+      !anyAttackLock &&
+      !jumpLock.current
+    ) {
+      comboPunchLock.current = true;
+      setAnimation("ComboPunch");
+      gameState.spiderman.isAttacking = true;
+      gameState.spiderman.attackType = "ComboPunch";
+      gameState.spiderman.hitDealt = false;
+      clearTimeout(comboPunchTimer.current);
+      comboPunchTimer.current = setTimeout(() => {
+        comboPunchLock.current = false;
+        gameState.spiderman.isAttacking = false;
+        gameState.spiderman.attackType = null;
+      }, 1400);
+    } else if (!jumpLock.current && !anyAttackLock) {
       setAnimation(isMoving ? "Run" : "Idle");
     }
 
@@ -231,7 +293,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       const dist = Math.sqrt(dx * dx + dz * dz);
       if (dist < ATTACK_RANGE) {
         gameState.spiderman.hitDealt = true;
-        const dmg = gameState.spiderman.attackType === "Kick" ? 5 : 3;
+        // const dmg = gameState.spiderman.attackType === "Kick" ? 5 : 3;
+        const dmg = SPIDERMAN_DAMAGE[gameState.spiderman.attackType] ?? 1;
         dealDamageToVenom(dmg);
       }
     }
@@ -244,8 +307,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       const dist = Math.sqrt(dx * dx + dz * dz);
       if (dist < ATTACK_RANGE) {
         gameState.venom.hitDealt = true;
-        const dmg = gameState.venom.attackType === "Kick" ? 5 : 3;
-        takeDamage(dmg);
+        // const dmg = gameState.venom.attackType === "Kick" ? 5 : 3;
+        takeDamage(1);
       }
     }
 

@@ -11,6 +11,8 @@ const KEY_MAP = {
   ArrowRight: "right",
   KeyQ: "punch",
   KeyR: "kick",
+  KeyF: "kickMMA",
+  KeyE: "comboPunch",
   Space: "jump",
 };
 
@@ -22,6 +24,8 @@ export const useKeyboardControls = () => {
     right: false,
     punch: false,
     kick: false,
+    kickMMA: false,
+    comboPunch: false,
     jump: false,
   });
 
