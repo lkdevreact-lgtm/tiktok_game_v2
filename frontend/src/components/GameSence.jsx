@@ -11,7 +11,8 @@ import { useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
 import CharacterController from "./CharacterController";
 import VenomController from "./VenomController";
-import { gameState } from "../stores/gameStore";
+import { gameState, fullRestartAtom } from "../stores/gameStore";
+import { useAtom } from "jotai";
 
 const VENOM_SPAWN_INTERVAL = 15000;
 const VENOM_SPAWN_MIN_DIST = 30;
@@ -36,6 +37,7 @@ const GameSence = ({ onReady }) => {
   const cameraRefernceRef = useRef();
   const venomIdRef = useRef(0);
   const [venoms, setVenoms] = useState([]);
+  const [fullRestart, setFullRestart] = useAtom(fullRestartAtom);
 
   // Khi component mount = models đã load xong (Suspense đã resolve)
   useEffect(() => {
@@ -52,6 +54,15 @@ const GameSence = ({ onReady }) => {
   const handleDespawn = useCallback((id) => {
     setVenoms((list) => list.filter((v) => v.id !== id));
   }, []);
+
+  // Handle full restart — clear all venoms and reset spawn timer
+  useEffect(() => {
+    if (fullRestart) {
+      setVenoms([]);
+      venomIdRef.current = 0;
+      setFullRestart(false);
+    }
+  }, [fullRestart, setFullRestart]);
 
   useEffect(() => {
     const firstSpawn = setTimeout(spawnVenom, 500);

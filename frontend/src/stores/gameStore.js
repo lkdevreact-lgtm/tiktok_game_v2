@@ -6,6 +6,11 @@ export const venomHpAtom = atom(100);
 export const gameOverAtom = atom(false);
 export const winnerAtom = atom(null); // "Spiderman" | "Venom" | null
 
+// Play Again limit system
+export const MAX_PLAYS = 5;
+export const playCountAtom = atom(0); // how many rounds played (starts at 0)
+export const fullRestartAtom = atom(false); // triggers full game restart
+
 // Tổng bán kính "cấm overlap" giữa 2 nhân vật (capsule radius ~1.3 mỗi bên)
 export const CHAR_BLOCK_RADIUS = 3;
 

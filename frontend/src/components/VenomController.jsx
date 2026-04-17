@@ -35,6 +35,8 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
   const isDead = useRef(false);
   const isFalling = useRef(true);
   const fallStarted = useRef(false);
+  const fallStartTime = useRef(performance.now());
+  const landedFrames = useRef(0);
   const gameOver = useAtomValue(gameOverAtom);
   const prevGameOverRef = useRef(false);
   const entryRef = useRef(null);
@@ -76,6 +78,8 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
       punchLock.current = false;
       isFalling.current = true;
       fallStarted.current = false;
+      fallStartTime.current = performance.now();
+      landedFrames.current = 0;
       clearTimeout(punchTimer.current);
       entry.hp = 15;
       entry.isAttacking = false;
@@ -146,14 +150,27 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
     const clampedY = Math.min(velocity.y, 15);
 
     if (isFalling.current) {
+      // Lock horizontal movement — only allow gravity (vertical)
       rigidBodyRef.current.setLinvel({ x: 0, y: velocity.y, z: 0 }, true);
       setAnimation("Idle");
       entry.isAttacking = false;
       entry.attackType = null;
+      // Track that fall has begun (velocity going down)
       if (velocity.y < -1) fallStarted.current = true;
-      if (fallStarted.current && Math.abs(velocity.y) < 0.5) {
-        isFalling.current = false;
-        fallStarted.current = false;
+      // Minimum fall time: at least 800ms before allowing landing
+      const fallElapsed = performance.now() - fallStartTime.current;
+      const minFallTimeMet = fallElapsed > 800;
+      // Check if grounded: very small vertical velocity
+      if (fallStarted.current && minFallTimeMet && Math.abs(velocity.y) < 0.1) {
+        landedFrames.current++;
+        // Require 5 consecutive grounded frames to confirm landing
+        if (landedFrames.current >= 5) {
+          isFalling.current = false;
+          fallStarted.current = false;
+          landedFrames.current = 0;
+        }
+      } else {
+        landedFrames.current = 0;
       }
       return;
     }
