@@ -32,6 +32,7 @@ const SPIDERMAN_ONE_SHOTS = [
 ];
 const SPIDERMAN_DAMAGE = { Punch: 1, Kick: 1, KickMMA: 3, ComboPunch: 3 };
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
+const SPIDERMAN_SPAWN = { x: -241.48, y: -2.26, z: 311.29 };
 
 const CharacterController = ({ cameraControlsRef }) => {
   const rigidBodyRef = useRef();
@@ -143,7 +144,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       clearTimeout(kickTimer.current);
       clearTimeout(kickMMATimer.current);
       clearTimeout(comboPunchTimer.current);
-      rigidBodyRef.current.setTranslation({ x: -30, y: 10, z: 400 }, true);
+      rigidBodyRef.current.setTranslation(SPIDERMAN_SPAWN, true);
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
       prevGameOver.current = false;
     }
@@ -411,7 +412,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       colliders={false}
       lockRotations
       type="dynamic"
-      position={[-241.48, -2.26, 311.29]}
+      position={[SPIDERMAN_SPAWN.x, SPIDERMAN_SPAWN.y, SPIDERMAN_SPAWN.z]}
       restitution={0}
       friction={1}
     >
