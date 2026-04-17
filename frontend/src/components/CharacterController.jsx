@@ -1,9 +1,7 @@
-import { useRef, useState, useCallback } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useRef, useState, useCallback, useEffect } from "react";
+import { useFrame } from "@react-three/fiber";
 import {
-  BallCollider,
   CapsuleCollider,
-  CuboidCollider,
   RigidBody,
   interactionGroups,
   useRapier,
@@ -21,7 +19,7 @@ import {
 } from "../stores/gameStore";
 
 const MOVE_SPEED = 13;
-const CAMERA_OFFSET = { x: 20, y: 5, z: -10 };
+const CAMERA_OFFSET = { x: 10, y: 5, z: -20 };
 const SPIDERMAN_MODEL = "models/character/Spiderman.glb";
 const ATTACK_RANGE = 20;
 const SPIDERMAN_ONE_SHOTS = [
@@ -40,7 +38,6 @@ const CharacterController = ({ cameraControlsRef }) => {
   const characterRef = useRef();
   const [animation, setAnimation] = useState("Idle");
   const keys = useKeyboardControls();
-  const camera = useThree((state) => state.camera);
   const { world, rapier } = useRapier();
 
   const jumpLock = useRef(false);
@@ -76,6 +73,26 @@ const CharacterController = ({ cameraControlsRef }) => {
   });
   const hpRef = useRef(100);
   const isDead = useRef(false);
+  const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    const onDown = () => {
+      isDraggingRef.current = true;
+    };
+    const onUp = () => {
+      isDraggingRef.current = false;
+    };
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("blur", onUp);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("blur", onUp);
+    };
+  }, []);
 
   const setSpidermanHp = useSetAtom(spidermanHpAtom);
   const setVenomHp = useSetAtom(venomHpAtom);
@@ -141,11 +158,12 @@ const CharacterController = ({ cameraControlsRef }) => {
 
     const velocity = rigidBodyRef.current.linvel();
 
-    const camForward = new Vector3();
-    camera.getWorldDirection(camForward);
-    camForward.y = 0;
-    camForward.normalize();
-
+    // Hướng di chuyển cố định theo offset camera ban đầu (không phụ thuộc xoay camera)
+    const camForward = new Vector3(
+      -CAMERA_OFFSET.x,
+      0,
+      -CAMERA_OFFSET.z,
+    ).normalize();
     const camRight = new Vector3();
     camRight.crossVectors(camForward, new Vector3(0, 1, 0)).normalize();
 
@@ -333,7 +351,8 @@ const CharacterController = ({ cameraControlsRef }) => {
     }
 
     // Camera follow (với raycast tránh toà nhà che)
-    if (cameraControlsRef?.current) {
+    // Khi đang kéo chuột → để user tự xoay, thả ra thì follow lại (smooth).
+    if (cameraControlsRef?.current && !isDraggingRef.current) {
       const targetY = pos.y + 3;
       const desiredX = pos.x + CAMERA_OFFSET.x;
       const desiredY = pos.y + CAMERA_OFFSET.y;
