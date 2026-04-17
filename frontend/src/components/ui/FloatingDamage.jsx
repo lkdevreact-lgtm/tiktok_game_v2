@@ -11,6 +11,10 @@ const FloatingDamage = ({ id, damage, position, onComplete }) => {
   const groupRef = useRef();
   const elapsed = useRef(0);
   const [visible, setVisible] = useState(true);
+  const [opacity, setOpacity] = useState(1);
+
+  const color = damage >= 3 ? "#ff4444" : "#ffcc00";
+  const isCrit = damage >= 3;
 
   useFrame((_, delta) => {
     if (!groupRef.current || !visible) return;
@@ -26,6 +30,10 @@ const FloatingDamage = ({ id, damage, position, onComplete }) => {
     const scale = SCALE_START + (SCALE_END - SCALE_START) * t;
     groupRef.current.scale.set(scale, scale, scale);
 
+    // Update opacity via state (avoid reading ref during render)
+    const newOpacity = t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3;
+    setOpacity(newOpacity);
+
     if (t >= 1) {
       setVisible(false);
       onComplete?.(id);
@@ -33,12 +41,6 @@ const FloatingDamage = ({ id, damage, position, onComplete }) => {
   });
 
   if (!visible) return null;
-
-  const t = Math.min(1, elapsed.current / LIFETIME);
-  const opacity = t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3;
-
-  const color = damage >= 3 ? "#ff4444" : "#ffcc00";
-  const isCrit = damage >= 3;
 
   return (
     <group ref={groupRef} position={[position.x, position.y + 6, position.z]}>

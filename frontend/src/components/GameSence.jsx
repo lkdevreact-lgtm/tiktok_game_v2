@@ -30,12 +30,17 @@ const randomSpawnNearSpiderman = () => {
   };
 };
 
-const GameSence = () => {
+const GameSence = ({ onReady }) => {
   const controlsRef = useRef();
   const viewport = useThree((state) => state.viewport);
   const cameraRefernceRef = useRef();
   const venomIdRef = useRef(0);
   const [venoms, setVenoms] = useState([]);
+
+  // Khi component mount = models đã load xong (Suspense đã resolve)
+  useEffect(() => {
+    onReady?.();
+  }, []);
 
   const spawnVenom = useCallback(() => {
     setVenoms((list) => {
