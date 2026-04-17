@@ -71,15 +71,18 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
   useFrame(() => {
     if (!rigidBodyRef.current || !entryRef.current) return;
 
-    // Play Again: gameOver chuyển true → false → reset toàn bộ Venom
+    // Play Again: gameOver chuyển true → false → reset combat state, giữ vị trí
     if (prevGameOverRef.current && !gameOver) {
       const entry = entryRef.current;
       isDead.current = false;
       punchLock.current = false;
-      isFalling.current = true;
-      fallStarted.current = false;
-      fallStartTime.current = performance.now();
-      landedFrames.current = 0;
+      // Không reset isFalling — Venom đã trên mặt đất thì tiếp tục tấn công
+      // Chỉ reset falling nếu Venom đang thực sự rơi
+      if (!isFalling.current) {
+        // Venom đã hạ cánh → sẵn sàng tấn công ngay
+        fallStarted.current = false;
+        landedFrames.current = 0;
+      }
       clearTimeout(punchTimer.current);
       entry.hp = 15;
       entry.isAttacking = false;

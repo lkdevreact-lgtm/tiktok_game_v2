@@ -9,6 +9,8 @@ import {
   playCountAtom,
   fullRestartAtom,
 } from "../../stores/gameStore";
+import { AiFillSetting } from "react-icons/ai";
+
 
 const Bar = ({ hp, name, color, side }) => {
   const percent = Math.max(0, Math.min(100, hp));
@@ -86,6 +88,7 @@ const HealthBarHUD = () => {
 
   return (
     <div className="absolute inset-0 pointer-events-none z-50">
+      <div className="absolute top-4 left-5"></div>
       {/* Combat guide */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-4 bg-black/40 backdrop-blur-sm rounded-lg px-5 py-2 border border-white/10">
         <div className="flex items-center gap-1.5">
