@@ -47,10 +47,7 @@ const HealthBarHUD = () => {
     gameState.spiderman.isAttacking = false;
     gameState.spiderman.attackType = null;
     gameState.spiderman.hitDealt = false;
-    gameState.venom.hp = 100;
-    gameState.venom.isAttacking = false;
-    gameState.venom.attackType = null;
-    gameState.venom.hitDealt = false;
+    gameState.venoms.length = 0;
   };
 
   return (

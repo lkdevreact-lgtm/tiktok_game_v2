@@ -1,116 +1,89 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
   CapsuleCollider,
-  CuboidCollider,
   RigidBody,
   interactionGroups,
 } from "@react-three/rapier";
 import Character from "./ui/Character";
-import { Vector3 } from "three";
-import { useAtomValue, useSetAtom } from "jotai";
-import { gameState, gameOverAtom, venomHpAtom } from "../stores/gameStore";
+import { useAtomValue } from "jotai";
+import { gameState, gameOverAtom } from "../stores/gameStore";
 
 const VENOM_MODEL = "models/character/Venom.glb";
 const MOVE_SPEED = 10;
 const ATTACK_RANGE = 4;
-const PUNCH_DURATION = 900; // ms
-const PUNCH_COOLDOWN = 1500; // ms between punches
-const RESPAWN_DELAY = 5000; // ms after death
-const RESPAWN_MIN_DIST = 40;
-const RESPAWN_MAX_DIST = 70;
+const PUNCH_DURATION = 900;
+const PUNCH_COOLDOWN = 1500;
+const DIE_ANIM_HOLD = 1500; // giữ animation Die trước khi fade
+const FADE_DURATION = 2000; // thời gian fade opacity
 
 const VENOM_ONE_SHOTS = ["Punch", "Die"];
 
-const randomSpawnNearSpiderman = () => {
-  const sp = gameState.spiderman.position;
-  const angle = Math.random() * Math.PI * 2;
-  const dist =
-    RESPAWN_MIN_DIST + Math.random() * (RESPAWN_MAX_DIST - RESPAWN_MIN_DIST);
-  return {
-    x: sp.x + Math.cos(angle) * dist,
-    y: 20,
-    z: sp.z + Math.sin(angle) * dist,
-  };
-};
-
-const VenomController = () => {
+const VenomController = ({ id, spawnPosition, onDespawn }) => {
   const rigidBodyRef = useRef();
   const characterRef = useRef();
   const [animation, setAnimation] = useState("Idle");
 
   const punchLock = useRef(false);
   const punchTimer = useRef(null);
-  const respawnTimer = useRef(null);
   const isDead = useRef(false);
-  const isFalling = useRef(false);
+  const isFalling = useRef(true);
   const fallStarted = useRef(false);
-  const hasInitialized = useRef(false);
   const gameOver = useAtomValue(gameOverAtom);
-  const setVenomHp = useSetAtom(venomHpAtom);
-  const prevGameOver = useRef(false);
+  const entryRef = useRef(null);
+  const dieStartRef = useRef(0);
+  const [opacity, setOpacity] = useState(1);
+
+  useEffect(() => {
+    const entry = {
+      id,
+      position: { x: spawnPosition.x, y: spawnPosition.y, z: spawnPosition.z },
+      isAttacking: false,
+      attackType: null,
+      hitDealt: false,
+      hp: 100,
+    };
+    gameState.venoms.push(entry);
+    entryRef.current = entry;
+    return () => {
+      const idx = gameState.venoms.indexOf(entry);
+      if (idx >= 0) gameState.venoms.splice(idx, 1);
+      clearTimeout(punchTimer.current);
+    };
+  }, [id, spawnPosition.x, spawnPosition.y, spawnPosition.z]);
 
   useFrame(() => {
-    if (!rigidBodyRef.current) return;
-
-    // Spawn near Spiderman on first frame (after shared position is populated)
-    if (!hasInitialized.current) {
-      const sp = gameState.spiderman.position;
-      if (sp.x !== 0 || sp.z !== -1) {
-        hasInitialized.current = true;
-        const spawn = randomSpawnNearSpiderman();
-        rigidBodyRef.current.setTranslation(spawn, true);
-        rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
-        isFalling.current = true;
-        fallStarted.current = false;
-      }
-    }
-
-    // Reset khi Play Again
-    if (prevGameOver.current && !gameOver) {
-      isDead.current = false;
-      punchLock.current = false;
-      clearTimeout(punchTimer.current);
-      clearTimeout(respawnTimer.current);
-      const spawn = randomSpawnNearSpiderman();
-      rigidBodyRef.current.setTranslation(spawn, true);
+    if (!rigidBodyRef.current || !entryRef.current) return;
+    if (gameOver) {
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
-      gameState.venom.hp = 100;
-      setVenomHp(100);
-      setAnimation("Idle");
-      isFalling.current = true;
-      fallStarted.current = false;
-      prevGameOver.current = false;
+      return;
     }
-    prevGameOver.current = gameOver;
 
-    // Check if dead — start respawn timer and stay idle
-    const venomHp = gameState.venom.hp ?? 100;
-    if (venomHp <= 0 && !isDead.current) {
+    const entry = entryRef.current;
+
+    // Death handling — play Die anim, hold, then fade opacity → despawn
+    if (entry.hp <= 0 && !isDead.current) {
       isDead.current = true;
+      dieStartRef.current = performance.now();
       setAnimation("Die");
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
-      gameState.venom.isAttacking = false;
-      gameState.venom.attackType = null;
+      entry.isAttacking = false;
+      entry.attackType = null;
       punchLock.current = false;
       clearTimeout(punchTimer.current);
-
-      clearTimeout(respawnTimer.current);
-      respawnTimer.current = setTimeout(() => {
-        const spawn = randomSpawnNearSpiderman();
-        rigidBodyRef.current?.setTranslation(spawn, true);
-        rigidBodyRef.current?.setLinvel({ x: 0, y: 0, z: 0 }, true);
-        gameState.venom.hp = 100;
-        setVenomHp(100);
-        isDead.current = false;
-        isFalling.current = true;
-        fallStarted.current = false;
-        setAnimation("Idle");
-      }, RESPAWN_DELAY);
       return;
     }
     if (isDead.current) {
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      const elapsed = performance.now() - dieStartRef.current;
+      if (elapsed > DIE_ANIM_HOLD) {
+        const fadeT = Math.min(1, (elapsed - DIE_ANIM_HOLD) / FADE_DURATION);
+        const newOpacity = 1 - fadeT;
+        setOpacity(newOpacity);
+        if (fadeT >= 1) {
+          onDespawn?.(id);
+        }
+      }
       return;
     }
 
@@ -118,32 +91,25 @@ const VenomController = () => {
     const venomPos = rigidBodyRef.current.translation();
     const spiderPos = gameState.spiderman.position;
 
-    // Direction toward Spiderman
     const dx = spiderPos.x - venomPos.x;
     const dz = spiderPos.z - venomPos.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
 
-    // Update shared position
-    gameState.venom.position.x = venomPos.x;
-    gameState.venom.position.y = venomPos.y;
-    gameState.venom.position.z = venomPos.z;
+    entry.position.x = venomPos.x;
+    entry.position.y = venomPos.y;
+    entry.position.z = venomPos.z;
 
-    // Face Spiderman
     if (characterRef.current && dist > 0.1) {
-      const angle = Math.atan2(dx, dz);
-      characterRef.current.rotation.y = angle;
+      characterRef.current.rotation.y = Math.atan2(dx, dz);
     }
 
-    // Clamp Y velocity: không cho bị đẩy lên quá cao khi va bậc thềm
     const clampedY = Math.min(velocity.y, 15);
 
-    // While falling after spawn, just let gravity pull down — don't chase yet
     if (isFalling.current) {
       rigidBodyRef.current.setLinvel({ x: 0, y: velocity.y, z: 0 }, true);
       setAnimation("Idle");
-      gameState.venom.isAttacking = false;
-      gameState.venom.attackType = null;
-      // Must actually fall first before we can be "grounded"
+      entry.isAttacking = false;
+      entry.attackType = null;
       if (velocity.y < -1) fallStarted.current = true;
       if (fallStarted.current && Math.abs(velocity.y) < 0.5) {
         isFalling.current = false;
@@ -152,36 +118,31 @@ const VenomController = () => {
       return;
     }
 
-    // AI behavior
     if (dist > ATTACK_RANGE && !punchLock.current) {
-      // Run toward Spiderman
       const nx = (dx / dist) * MOVE_SPEED;
       const nz = (dz / dist) * MOVE_SPEED;
       rigidBodyRef.current.setLinvel({ x: nx, y: clampedY, z: nz }, true);
       setAnimation("Run");
-      gameState.venom.isAttacking = false;
-      gameState.venom.attackType = null;
+      entry.isAttacking = false;
+      entry.attackType = null;
     } else if (dist <= ATTACK_RANGE && !punchLock.current) {
-      // Punch!
       rigidBodyRef.current.setLinvel({ x: 0, y: clampedY, z: 0 }, true);
       punchLock.current = true;
       setAnimation("Punch");
-      gameState.venom.isAttacking = true;
-      gameState.venom.attackType = "Punch";
-      gameState.venom.hitDealt = false;
+      entry.isAttacking = true;
+      entry.attackType = "Punch";
+      entry.hitDealt = false;
 
       clearTimeout(punchTimer.current);
       punchTimer.current = setTimeout(() => {
-        gameState.venom.isAttacking = false;
-        gameState.venom.attackType = null;
+        entry.isAttacking = false;
+        entry.attackType = null;
         setAnimation("Idle");
-        // Cooldown before next punch
         setTimeout(() => {
           punchLock.current = false;
         }, PUNCH_COOLDOWN - PUNCH_DURATION);
       }, PUNCH_DURATION);
     } else if (punchLock.current) {
-      // Stay still while punching/cooldown
       rigidBodyRef.current.setLinvel({ x: 0, y: clampedY, z: 0 }, true);
     }
   });
@@ -191,7 +152,7 @@ const VenomController = () => {
       ref={rigidBodyRef}
       colliders={false}
       lockRotations
-      position={[-20, -10.5, 50]}
+      position={[spawnPosition.x, spawnPosition.y, spawnPosition.z]}
     >
       <CapsuleCollider
         args={[1.3, 2.8]}
@@ -204,6 +165,7 @@ const VenomController = () => {
           animation={animation}
           scale={3}
           oneShotList={VENOM_ONE_SHOTS}
+          opacity={opacity}
         />
       </group>
     </RigidBody>

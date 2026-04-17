@@ -1,19 +1,40 @@
 import { useGLTF } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
-import { AnimationMixer, Color, FrontSide, LoopOnce } from "three";
+import { AnimationMixer, FrontSide, LoopOnce } from "three";
+import { SkeletonUtils } from "three-stdlib";
 
 const DEFAULT_ONE_SHOTS = new Set(["Punch", "Kick", "Jump"]);
 
-const Character = ({ modelPath, animation = "Idle", scale = 0.6, oneShotList }) => {
+const Character = ({
+  modelPath,
+  animation = "Idle",
+  scale = 0.6,
+  oneShotList,
+  opacity = 1,
+}) => {
   const group = useRef();
   const { scene, animations } = useGLTF(modelPath);
+
+  // Clone scene + materials per instance so multiple characters / opacity don't clash
+  const clonedScene = useMemo(() => {
+    const clone = SkeletonUtils.clone(scene);
+    clone.traverse((child) => {
+      if (child.isMesh && child.material) {
+        child.material = child.material.clone();
+      }
+    });
+    return clone;
+  }, [scene]);
 
   const oneShots = useMemo(
     () => (oneShotList ? new Set(oneShotList) : DEFAULT_ONE_SHOTS),
     [oneShotList],
   );
 
-  const mixer = useMemo(() => new AnimationMixer(scene), [scene]);
+  const mixer = useMemo(
+    () => new AnimationMixer(clonedScene),
+    [clonedScene],
+  );
   const clipMap = useMemo(() => {
     const map = {};
     for (const clip of animations) {
@@ -57,32 +78,35 @@ const Character = ({ modelPath, animation = "Idle", scale = 0.6, oneShotList }) 
   }, [animation, mixer, clipMap, oneShots]);
 
   useEffect(() => {
-    scene.traverse((child) => {
+    clonedScene.traverse((child) => {
       if (child.isMesh) {
         const mat = child.material;
         if (!mat) return;
 
         mat.depthWrite = true;
         mat.depthTest = true;
-
-        if (mat.transparent && mat.opacity === 1) {
-          mat.transparent = false;
-        }
-
         mat.side = FrontSide;
 
         mat.polygonOffset = true;
         mat.polygonOffsetFactor = 1;
         mat.polygonOffsetUnits = 1;
-
-       
       }
     });
-  }, [scene]);
+  }, [clonedScene]);
+
+  useEffect(() => {
+    clonedScene.traverse((child) => {
+      if (child.isMesh && child.material) {
+        child.material.transparent = opacity < 1;
+        child.material.opacity = opacity;
+        child.material.depthWrite = opacity >= 1;
+      }
+    });
+  }, [clonedScene, opacity]);
 
   return (
     <group ref={group}>
-      <primitive object={scene} scale={scale} castShadow />
+      <primitive object={clonedScene} scale={scale} castShadow />
     </group>
   );
 };

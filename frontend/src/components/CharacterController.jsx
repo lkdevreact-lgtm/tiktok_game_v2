@@ -6,6 +6,7 @@ import {
   CuboidCollider,
   RigidBody,
   interactionGroups,
+  useRapier,
 } from "@react-three/rapier";
 import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import Character from "./ui/Character";
@@ -32,6 +33,7 @@ const SPIDERMAN_ONE_SHOTS = [
   "Die",
 ];
 const SPIDERMAN_DAMAGE = { Punch: 1, Kick: 1, KickMMA: 3, ComboPunch: 3 };
+const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
 
 const CharacterController = ({ cameraControlsRef }) => {
   const rigidBodyRef = useRef();
@@ -39,6 +41,7 @@ const CharacterController = ({ cameraControlsRef }) => {
   const [animation, setAnimation] = useState("Idle");
   const keys = useKeyboardControls();
   const camera = useThree((state) => state.camera);
+  const { world, rapier } = useRapier();
 
   const jumpLock = useRef(false);
   const punchLock = useRef(false);
@@ -50,6 +53,20 @@ const CharacterController = ({ cameraControlsRef }) => {
   const kickTimer = useRef(null);
   const kickMMATimer = useRef(null);
   const comboPunchTimer = useRef(null);
+  const punchSoundRef = useRef(null);
+
+  const playPunchSound = useCallback(() => {
+    if (!punchSoundRef.current) {
+      punchSoundRef.current = new Audio(PUNCH_SOUND_SRC);
+      punchSoundRef.current.volume = 0.8;
+    }
+    try {
+      punchSoundRef.current.currentTime = 0;
+      punchSoundRef.current.play();
+    } catch {
+      // ignore autoplay errors
+    }
+  }, []);
   const prevKeys = useRef({
     punch: false,
     kick: false,
@@ -83,11 +100,10 @@ const CharacterController = ({ cameraControlsRef }) => {
   );
 
   const dealDamageToVenom = useCallback(
-    (amount) => {
-      const venomState = gameState.venom;
-      const currentHp = venomState.hp ?? 100;
+    (entry, amount) => {
+      const currentHp = entry.hp ?? 100;
       const newHp = Math.max(0, currentHp - amount);
-      venomState.hp = newHp;
+      entry.hp = newHp;
       setVenomHp(newHp);
     },
     [setVenomHp],
@@ -221,6 +237,7 @@ const CharacterController = ({ cameraControlsRef }) => {
     ) {
       punchLock.current = true;
       setAnimation("Punch");
+      playPunchSound();
       gameState.spiderman.isAttacking = true;
       gameState.spiderman.attackType = "Punch";
       gameState.spiderman.hitDealt = false;
@@ -238,6 +255,7 @@ const CharacterController = ({ cameraControlsRef }) => {
     ) {
       kickLock.current = true;
       setAnimation("Kick");
+      playPunchSound();
       gameState.spiderman.isAttacking = true;
       gameState.spiderman.attackType = "Kick";
       gameState.spiderman.hitDealt = false;
@@ -255,6 +273,7 @@ const CharacterController = ({ cameraControlsRef }) => {
     ) {
       kickMMALock.current = true;
       setAnimation("KickMMA");
+      playPunchSound();
       gameState.spiderman.isAttacking = true;
       gameState.spiderman.attackType = "KickMMA";
       gameState.spiderman.hitDealt = false;
@@ -272,6 +291,7 @@ const CharacterController = ({ cameraControlsRef }) => {
     ) {
       comboPunchLock.current = true;
       setAnimation("ComboPunch");
+      playPunchSound();
       gameState.spiderman.isAttacking = true;
       gameState.spiderman.attackType = "ComboPunch";
       gameState.spiderman.hitDealt = false;
@@ -285,39 +305,79 @@ const CharacterController = ({ cameraControlsRef }) => {
       setAnimation(isMoving ? "Run" : "Idle");
     }
 
-    // --- Spiderman hits Venom ---
+    // --- Spiderman hits all Venoms in range ---
     if (gameState.spiderman.isAttacking && !gameState.spiderman.hitDealt) {
-      const vp = gameState.venom.position;
-      const dx = pos.x - vp.x;
-      const dz = pos.z - vp.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      if (dist < ATTACK_RANGE) {
-        gameState.spiderman.hitDealt = true;
-        // const dmg = gameState.spiderman.attackType === "Kick" ? 5 : 3;
-        const dmg = SPIDERMAN_DAMAGE[gameState.spiderman.attackType] ?? 1;
-        dealDamageToVenom(dmg);
+      const dmg = SPIDERMAN_DAMAGE[gameState.spiderman.attackType] ?? 1;
+      let didHit = false;
+      for (const entry of gameState.venoms) {
+        if (entry.hp <= 0) continue;
+        const dx = pos.x - entry.position.x;
+        const dz = pos.z - entry.position.z;
+        if (Math.sqrt(dx * dx + dz * dz) < ATTACK_RANGE) {
+          dealDamageToVenom(entry, dmg);
+          didHit = true;
+        }
+      }
+      if (didHit) gameState.spiderman.hitDealt = true;
+    }
+
+    // --- Any Venom hits Spiderman ---
+    for (const entry of gameState.venoms) {
+      if (!entry.isAttacking || entry.hitDealt) continue;
+      const dx = pos.x - entry.position.x;
+      const dz = pos.z - entry.position.z;
+      if (Math.sqrt(dx * dx + dz * dz) < ATTACK_RANGE) {
+        entry.hitDealt = true;
+        takeDamage(0.5);
       }
     }
 
-    // --- Venom hits Spiderman ---
-    if (gameState.venom.isAttacking && !gameState.venom.hitDealt) {
-      const vp = gameState.venom.position;
-      const dx = pos.x - vp.x;
-      const dz = pos.z - vp.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      if (dist < ATTACK_RANGE) {
-        gameState.venom.hitDealt = true;
-        // const dmg = gameState.venom.attackType === "Kick" ? 5 : 3;
-        takeDamage(1);
-      }
-    }
-
-    // Camera follow
+    // Camera follow (với raycast tránh toà nhà che)
     if (cameraControlsRef?.current) {
+      const targetY = pos.y + 3;
+      const desiredX = pos.x + CAMERA_OFFSET.x;
+      const desiredY = pos.y + CAMERA_OFFSET.y;
+      const desiredZ = pos.z + CAMERA_OFFSET.z;
+
+      let camX = desiredX;
+      let camY = desiredY;
+      let camZ = desiredZ;
+
+      const dirX = desiredX - pos.x;
+      const dirY = desiredY - targetY;
+      const dirZ = desiredZ - pos.z;
+      const dirLen = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+
+      if (dirLen > 0.0001 && world) {
+        const nx = dirX / dirLen;
+        const ny = dirY / dirLen;
+        const nz = dirZ / dirLen;
+        const ray = new rapier.Ray(
+          { x: pos.x, y: targetY, z: pos.z },
+          { x: nx, y: ny, z: nz },
+        );
+        const hit = world.castRay(
+          ray,
+          dirLen,
+          true,
+          undefined,
+          interactionGroups([0], [1]),
+          rigidBodyRef.current?.collider(0),
+          rigidBodyRef.current,
+        );
+        if (hit) {
+          const bias = 1.5;
+          const safe = Math.max(0, hit.timeOfImpact - bias);
+          camX = pos.x + nx * safe;
+          camY = targetY + ny * safe;
+          camZ = pos.z + nz * safe;
+        }
+      }
+
       cameraControlsRef.current.setLookAt(
-        pos.x + CAMERA_OFFSET.x,
-        pos.y + CAMERA_OFFSET.y,
-        pos.z + CAMERA_OFFSET.z,
+        camX,
+        camY,
+        camZ,
         pos.x,
         pos.y,
         pos.z,

@@ -14,10 +14,6 @@ export const gameState = {
     attackType: null, // "Punch" | "Kick" | null
     hitDealt: false, // flag to prevent multi-frame damage
   },
-  venom: {
-    position: { x: 8, y: 0, z: -1 },
-    isAttacking: false,
-    attackType: null,
-    hitDealt: false,
-  },
+  // Each entry: { id, position: {x,y,z}, isAttacking, attackType, hitDealt, hp }
+  venoms: [],
 };
