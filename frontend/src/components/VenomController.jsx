@@ -54,7 +54,7 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
       isAttacking: false,
       attackType: null,
       hitDealt: false,
-      hp: 100,
+      hp: 15,
     };
     gameState.venoms.push(entry);
     entryRef.current = entry;
