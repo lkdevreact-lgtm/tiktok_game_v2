@@ -11,9 +11,8 @@ import { Vector3 } from "three";
 import { useAtomValue, useSetAtom } from "jotai";
 import { gameState, gameOverAtom, venomHpAtom } from "../stores/gameStore";
 
-
 const VENOM_MODEL = "models/character/Venom.glb";
-const MOVE_SPEED = 20;
+const MOVE_SPEED = 10;
 const ATTACK_RANGE = 4;
 const PUNCH_DURATION = 900; // ms
 const PUNCH_COOLDOWN = 1500; // ms between punches
@@ -192,9 +191,13 @@ const VenomController = () => {
       ref={rigidBodyRef}
       colliders={false}
       lockRotations
-      position={[-20, -10, 50]}
+      position={[-20, -10.5, 50]}
     >
-      <CapsuleCollider args={[8.9, 10]} position={[0, 18.9, 0]} collisionGroups={interactionGroups([0], [1])} />
+      <CapsuleCollider
+        args={[1.3, 2.8]}
+        position={[0, 4.02, 0]}
+        collisionGroups={interactionGroups([0], [1])}
+      />
       <group ref={characterRef}>
         <Character
           modelPath={VENOM_MODEL}

@@ -54,9 +54,9 @@ const GameSence = () => {
       <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} near={0.5} far={5000} />
       <CameraControls ref={controlsRef} />
       <Physics debug >
-        <CharacterController />
+        <CharacterController cameraControlsRef={controlsRef}/>
         {/* cameraControlsRef={controlsRef} */}
-        {/* <VenomController /> */}
+        <VenomController />
         <RigidBody type="fixed" colliders="trimesh" position={[17, -10, 0]} scale={10} collisionGroups={interactionGroups([1], [0])}>
           <MapStreet />
         </RigidBody>
