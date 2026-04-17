@@ -13,8 +13,8 @@ import { gameState, gameOverAtom, venomHpAtom } from "../stores/gameStore";
 
 
 const VENOM_MODEL = "models/character/Venom.glb";
-const MOVE_SPEED = 30;
-const ATTACK_RANGE = 18;
+const MOVE_SPEED = 20;
+const ATTACK_RANGE = 4;
 const PUNCH_DURATION = 900; // ms
 const PUNCH_COOLDOWN = 1500; // ms between punches
 const RESPAWN_DELAY = 5000; // ms after death
@@ -44,6 +44,8 @@ const VenomController = () => {
   const punchTimer = useRef(null);
   const respawnTimer = useRef(null);
   const isDead = useRef(false);
+  const isFalling = useRef(false);
+  const fallStarted = useRef(false);
   const hasInitialized = useRef(false);
   const gameOver = useAtomValue(gameOverAtom);
   const setVenomHp = useSetAtom(venomHpAtom);
@@ -60,6 +62,8 @@ const VenomController = () => {
         const spawn = randomSpawnNearSpiderman();
         rigidBodyRef.current.setTranslation(spawn, true);
         rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        isFalling.current = true;
+        fallStarted.current = false;
       }
     }
 
@@ -75,6 +79,8 @@ const VenomController = () => {
       gameState.venom.hp = 100;
       setVenomHp(100);
       setAnimation("Idle");
+      isFalling.current = true;
+      fallStarted.current = false;
       prevGameOver.current = false;
     }
     prevGameOver.current = gameOver;
@@ -98,6 +104,8 @@ const VenomController = () => {
         gameState.venom.hp = 100;
         setVenomHp(100);
         isDead.current = false;
+        isFalling.current = true;
+        fallStarted.current = false;
         setAnimation("Idle");
       }, RESPAWN_DELAY);
       return;
@@ -129,6 +137,21 @@ const VenomController = () => {
 
     // Clamp Y velocity: không cho bị đẩy lên quá cao khi va bậc thềm
     const clampedY = Math.min(velocity.y, 15);
+
+    // While falling after spawn, just let gravity pull down — don't chase yet
+    if (isFalling.current) {
+      rigidBodyRef.current.setLinvel({ x: 0, y: velocity.y, z: 0 }, true);
+      setAnimation("Idle");
+      gameState.venom.isAttacking = false;
+      gameState.venom.attackType = null;
+      // Must actually fall first before we can be "grounded"
+      if (velocity.y < -1) fallStarted.current = true;
+      if (fallStarted.current && Math.abs(velocity.y) < 0.5) {
+        isFalling.current = false;
+        fallStarted.current = false;
+      }
+      return;
+    }
 
     // AI behavior
     if (dist > ATTACK_RANGE && !punchLock.current) {
@@ -171,12 +194,12 @@ const VenomController = () => {
       lockRotations
       position={[-20, -10, 50]}
     >
-      <CapsuleCollider args={[8.9, 10]} position={[0, 18, 0]} collisionGroups={interactionGroups([0], [1])} />
+      <CapsuleCollider args={[8.9, 10]} position={[0, 18.9, 0]} collisionGroups={interactionGroups([0], [1])} />
       <group ref={characterRef}>
         <Character
           modelPath={VENOM_MODEL}
           animation={animation}
-          scale={12}
+          scale={3}
           oneShotList={VENOM_ONE_SHOTS}
         />
       </group>

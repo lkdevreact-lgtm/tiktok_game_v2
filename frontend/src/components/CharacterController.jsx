@@ -19,8 +19,8 @@ import {
   gameState,
 } from "../stores/gameStore";
 
-const MOVE_SPEED = 40;
-const CAMERA_OFFSET = { x: 20, y: 20, z: -80 };
+const MOVE_SPEED = 20;
+const CAMERA_OFFSET = { x: 20, y: 5, z: -10 };
 const SPIDERMAN_MODEL = "models/character/Spiderman.glb";
 const ATTACK_RANGE = 20;
 const SPIDERMAN_ONE_SHOTS = [
@@ -165,7 +165,7 @@ const CharacterController = ({ cameraControlsRef }) => {
     let finalY = velocity.y;
     if (finalY > 0) {
       // Đang đi lên → giữ clamp thấp để không bay cao khi va bậc thang
-      finalY = Math.min(finalY, 3);
+      finalY = Math.min(finalY, 1);
     } else {
       // Đang rơi xuống → cho phép rơi nhanh (không để chậm nữa)
       finalY = Math.max(finalY, -102); // -52 là giá trị tốt để thử đầu tiên
@@ -337,8 +337,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       friction={1}
     >
       <CapsuleCollider
-        args={[8.4, 6.5]}
-        position={[0, 15, 0]}
+        args={[1.3, 2.5]}
+        position={[0, 3.811, 0]}
         collisionGroups={interactionGroups([0], [1])}
       />
 
@@ -346,7 +346,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         <Character
           modelPath={SPIDERMAN_MODEL}
           animation={animation}
-          scale={13}
+          scale={3}
           oneShotList={SPIDERMAN_ONE_SHOTS}
         />
       </group>

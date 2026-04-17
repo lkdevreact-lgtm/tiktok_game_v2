@@ -53,11 +53,11 @@ const GameSence = () => {
       <Environment preset="city" />
       <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} near={0.5} far={5000} />
       <CameraControls ref={controlsRef} />
-      <Physics debug gravity={[0,-9.81,0]}>
+      <Physics debug >
         <CharacterController />
         {/* cameraControlsRef={controlsRef} */}
-        <VenomController />
-        <RigidBody type="fixed" colliders="trimesh" position={[7, -0.3, 10]} scale={0.05} collisionGroups={interactionGroups([1], [0])}>
+        {/* <VenomController /> */}
+        <RigidBody type="fixed" colliders="trimesh" position={[17, -10, 0]} scale={10} collisionGroups={interactionGroups([1], [0])}>
           <MapStreet />
         </RigidBody>
         <RigidBody type="fixed" colliders={false} collisionGroups={interactionGroups([1], [0])}>
