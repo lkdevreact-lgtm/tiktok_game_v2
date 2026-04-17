@@ -58,9 +58,11 @@ const GameSence = ({ onReady }) => {
   // Handle full restart — clear all venoms and reset spawn timer
   useEffect(() => {
     if (fullRestart) {
-      setVenoms([]);
-      venomIdRef.current = 0;
-      setFullRestart(false);
+      queueMicrotask(() => {
+        setVenoms([]);
+        venomIdRef.current = 0;
+        setFullRestart(false);
+      });
     }
   }, [fullRestart, setFullRestart]);
 

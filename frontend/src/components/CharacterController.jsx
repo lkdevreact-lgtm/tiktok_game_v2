@@ -35,6 +35,7 @@ const SPIDERMAN_ONE_SHOTS = [
 ];
 const SPIDERMAN_DAMAGE = { Punch: 1, Kick: 1, KickMMA: 3, ComboPunch: 3 };
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
+const RUN_SOUND_SRC = "/sound/sound_run.MP3";
 const SPIDERMAN_SPAWN = { x: -241.48, y: -2.26, z: 311.29 };
 
 const CharacterController = ({ cameraControlsRef }) => {
@@ -57,6 +58,8 @@ const CharacterController = ({ cameraControlsRef }) => {
   const kickMMATimer = useRef(null);
   const comboPunchTimer = useRef(null);
   const punchSoundRef = useRef(null);
+  const runSoundRef = useRef(null);
+  const wasMovingRef = useRef(false);
 
   const playPunchSound = useCallback(() => {
     if (!punchSoundRef.current) {
@@ -69,6 +72,18 @@ const CharacterController = ({ cameraControlsRef }) => {
     } catch {
       // ignore autoplay errors
     }
+  }, []);
+
+  // Initialize run sound once
+  useEffect(() => {
+    const audio = new Audio(RUN_SOUND_SRC);
+    audio.loop = true;
+    audio.volume = 0.4;
+    runSoundRef.current = audio;
+    return () => {
+      audio.pause();
+      audio.src = "";
+    };
   }, []);
   const prevKeys = useRef({
     punch: false,
@@ -159,6 +174,11 @@ const CharacterController = ({ cameraControlsRef }) => {
     if (isDead.current) {
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
       setAnimation("Die");
+      // Dừng sound chạy khi chết
+      if (runSoundRef.current) {
+        runSoundRef.current.pause();
+        wasMovingRef.current = false;
+      }
       return;
     }
 
@@ -200,6 +220,21 @@ const CharacterController = ({ cameraControlsRef }) => {
     }
 
     const isMoving = length > 0;
+
+    // Run sound: phát khi di chuyển, dừng khi đứng yên
+    if (isMoving && !wasMovingRef.current) {
+      // Bắt đầu di chuyển → play sound
+      if (runSoundRef.current) {
+        runSoundRef.current.currentTime = 0;
+        runSoundRef.current.play().catch(() => {});
+      }
+    } else if (!isMoving && wasMovingRef.current) {
+      // Ngừng di chuyển → pause sound
+      if (runSoundRef.current) {
+        runSoundRef.current.pause();
+      }
+    }
+    wasMovingRef.current = isMoving;
 
     // Clamp Y velocity: không cho bị đẩy lên quá cao khi va bậc thềm
     let finalY = velocity.y;
