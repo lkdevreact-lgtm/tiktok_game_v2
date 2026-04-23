@@ -10,7 +10,7 @@ import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import Character from "./ui/Character";
 import FloatingDamage from "./ui/FloatingDamage";
 import { Vector3 } from "three";
-import { useSetAtom, useAtomValue } from "jotai";
+import { useSetAtom, useAtomValue, useAtom } from "jotai";
 import {
   spidermanHpAtom,
   venomHpAtom,
@@ -19,6 +19,8 @@ import {
   gameState,
   blockIfTooClose,
   CHAR_BLOCK_RADIUS,
+  playCountAtom,
+  MAX_PLAYS,
 } from "../stores/gameStore";
 
 const MOVE_SPEED = 13;
@@ -37,6 +39,7 @@ const SPIDERMAN_DAMAGE = { Punch: 1, Kick: 1, KickMMA: 3, ComboPunch: 3 };
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
 const RUN_SOUND_SRC = "/sound/sound_run.MP3";
 const SPIDERMAN_SPAWN = { x: -241.48, y: -2.26, z: 311.29 };
+const FALL_OFF_Y = -10; // Y threshold để tính là rơi khỏi map
 
 const CharacterController = ({ cameraControlsRef }) => {
   const rigidBodyRef = useRef();
@@ -120,6 +123,8 @@ const CharacterController = ({ cameraControlsRef }) => {
   const setGameOver = useSetAtom(gameOverAtom);
   const setWinner = useSetAtom(winnerAtom);
   const gameOver = useAtomValue(gameOverAtom);
+  const [playCount, setPlayCount] = useAtom(playCountAtom);
+  const fallOffTriggeredRef = useRef(false);
 
   const prevGameOver = useRef(false);
 
@@ -159,6 +164,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       kickLock.current = false;
       kickMMALock.current = false;
       comboPunchLock.current = false;
+      fallOffTriggeredRef.current = false;
       clearTimeout(jumpTimer.current);
       clearTimeout(punchTimer.current);
       clearTimeout(kickTimer.current);
@@ -169,6 +175,51 @@ const CharacterController = ({ cameraControlsRef }) => {
       prevGameOver.current = false;
     }
     prevGameOver.current = gameOver;
+
+    // Rơi khỏi map → auto Play Again
+    const currentPos = rigidBodyRef.current.translation();
+    if (currentPos.y < FALL_OFF_Y && !fallOffTriggeredRef.current && !gameOver && !isDead.current) {
+      fallOffTriggeredRef.current = true;
+      // Dừng sound chạy
+      if (runSoundRef.current) {
+        runSoundRef.current.pause();
+        wasMovingRef.current = false;
+      }
+      // Tự động Play Again: reset mọi thứ ngay lập tức
+      if (playCount < MAX_PLAYS - 1) {
+        // Còn lượt → auto respawn
+        setPlayCount((prev) => prev + 1);
+        hpRef.current = 100;
+        setSpidermanHp(100);
+        isDead.current = false;
+        jumpLock.current = false;
+        punchLock.current = false;
+        kickLock.current = false;
+        kickMMALock.current = false;
+        comboPunchLock.current = false;
+        clearTimeout(jumpTimer.current);
+        clearTimeout(punchTimer.current);
+        clearTimeout(kickTimer.current);
+        clearTimeout(kickMMATimer.current);
+        clearTimeout(comboPunchTimer.current);
+        rigidBodyRef.current.setTranslation(SPIDERMAN_SPAWN, true);
+        rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        gameState.spiderman.isAttacking = false;
+        gameState.spiderman.attackType = null;
+        gameState.spiderman.hitDealt = false;
+        setAnimation("Idle");
+        fallOffTriggeredRef.current = false;
+      } else {
+        // Hết lượt → game over
+        setPlayCount((prev) => prev + 1);
+        isDead.current = true;
+        setGameOver(true);
+        setWinner("Venom");
+        hpRef.current = 0;
+        setSpidermanHp(0);
+      }
+      return;
+    }
 
     // Dead state
     if (isDead.current) {
@@ -226,7 +277,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       // Bắt đầu di chuyển → play sound
       if (runSoundRef.current) {
         runSoundRef.current.currentTime = 0;
-        runSoundRef.current.play().catch(() => {});
+        runSoundRef.current.play().catch(() => { });
       }
     } else if (!isMoving && wasMovingRef.current) {
       // Ngừng di chuyển → pause sound

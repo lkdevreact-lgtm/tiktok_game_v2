@@ -119,7 +119,7 @@ const GameSence = ({ onReady }) => {
             spawnPosition={v.spawnPosition}
             onDespawn={handleDespawn}
           />
-        ))}
+        ))} 
         <RigidBody type="fixed" colliders="trimesh" position={[17, -10, 0]} scale={10} collisionGroups={interactionGroups([1], [0])}>
           <MapStreet />
         </RigidBody>
