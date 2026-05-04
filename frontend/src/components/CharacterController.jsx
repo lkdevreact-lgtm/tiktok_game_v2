@@ -36,7 +36,7 @@ const SPIDERMAN_ONE_SHOTS = [
 const SPIDERMAN_DAMAGE = { Punch: 1, Kick: 1, KickMMA: 3, ComboPunch: 3 };
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
 const RUN_SOUND_SRC = "/sound/sound_run.MP3";
-const SPIDERMAN_SPAWN = { x: -241.48, y: -2.26, z: 311.29 };
+const SPIDERMAN_SPAWN = { x: -51.48, y: -2.26, z: 311.29 };
 
 const CharacterController = ({ cameraControlsRef }) => {
   const rigidBodyRef = useRef();

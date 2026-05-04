@@ -17,7 +17,7 @@ import {
 
 const VENOM_MODEL = "models/character/Venom.glb";
 const VENOM_SPAWN_SOUND = "sound/sound_venom.mp3";
-const MOVE_SPEED = 10;
+const MOVE_SPEED = 20;
 const ATTACK_RANGE = 5;
 const PUNCH_DURATION = 900;
 const PUNCH_COOLDOWN = 1500;
@@ -299,15 +299,15 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
       position={[spawnPosition.x, spawnPosition.y, spawnPosition.z]}
     >
       <CapsuleCollider
-        args={[1.3, 2.8]}
-        position={[0, 4.02, 0]}
+        args={[8.3, 5.5]}
+        position={[0, 13.7, 0]}
         collisionGroups={interactionGroups([0], [1])}
       />
       <group ref={characterRef}>
         <Character
           modelPath={VENOM_MODEL}
           animation={animation}
-          scale={3}
+          scale={10}
           oneShotList={VENOM_ONE_SHOTS}
           opacity={opacity}
         />

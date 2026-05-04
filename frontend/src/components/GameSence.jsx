@@ -89,7 +89,7 @@ const GameSence = ({ onReady }) => {
       680 * distFactor,
       0,
       0,
-      100,
+      10,
       true,
     );
   };
@@ -111,7 +111,7 @@ const GameSence = ({ onReady }) => {
       <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} near={0.5} far={5000} />
       <CameraControls ref={controlsRef} />
       <Physics>
-        <CharacterController />
+        <CharacterController cameraControlsRef={controlsRef}/>
         {/* {venoms.map((v) => (
           <VenomController
             key={v.id}
