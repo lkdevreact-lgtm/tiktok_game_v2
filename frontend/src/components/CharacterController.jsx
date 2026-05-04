@@ -116,9 +116,35 @@ const CharacterController = ({ cameraControlsRef }) => {
   const targetHeadingRef = useRef(0);
 
   // === Camera state ===
-  // Lưu vị trí camera đã smooth để render mượt giữa các frame
+  // - cameraPosRef    : vị trí camera đã smooth để render mượt giữa các frame
+  // - cameraInitRef   : lần đầu thì snap (không lerp từ origin)
+  // - isDraggingRef   : khi user đang kéo chuột → tạm dừng follow để
+  //                     CameraControls tự orbit (xem xung quanh / phía sau)
+  // - wasDraggingRef  : flag để ngay khi vừa thả chuột → sync cameraPosRef
+  //                     từ vị trí camera hiện tại, tránh nhảy giật về vị trí cũ
   const cameraPosRef = useRef(new Vector3());
   const cameraInitRef = useRef(false);
+  const isDraggingRef = useRef(false);
+  const wasDraggingRef = useRef(false);
+
+  useEffect(() => {
+    const onDown = () => {
+      isDraggingRef.current = true;
+    };
+    const onUp = () => {
+      isDraggingRef.current = false;
+    };
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("blur", onUp);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("blur", onUp);
+    };
+  }, []);
 
   const setSpidermanHp = useSetAtom(spidermanHpAtom);
   const setVenomHp = useSetAtom(venomHpAtom);
@@ -513,16 +539,25 @@ const CharacterController = ({ cameraControlsRef }) => {
     // ============================================================
     // THIRD-PERSON CAMERA FOLLOW
     // ------------------------------------------------------------
-    // Yêu cầu:
-    //  - Camera luôn nằm SAU LƯNG nhân vật (offset rotate theo heading,
-    //    KHÔNG fix theo world axis).
-    //  - LookAt nhân vật.
-    //  - Lerp vị trí mượt → không giật khi đổi hướng đột ngột.
-    //  - Raycast → kéo vào nếu trúng tường/toà nhà.
-    //  - Vì heading đã được lerp riêng (HEADING_LERP), camera tự xoay
-    //    mượt theo lưng → không bao giờ orbit.
+    // - Camera luôn nằm SAU LƯNG nhân vật (offset rotate theo heading).
+    // - LookAt nhân vật.
+    // - Lerp vị trí mượt → không giật khi đổi hướng đột ngột.
+    // - Raycast → kéo vào nếu trúng tường/toà nhà.
+    // - Khi user kéo chuột → tạm dừng follow để CameraControls tự
+    //   orbit (xem phía sau / xung quanh). Thả ra thì sync vị trí
+    //   thực tế vào cameraPosRef rồi lerp mượt về sau lưng (không giật).
     // ============================================================
-    if (cameraControlsRef?.current) {
+    if (cameraControlsRef?.current && isDraggingRef.current) {
+      // User đang điều khiển camera → bỏ qua follow, đánh dấu để sync sau.
+      wasDraggingRef.current = true;
+    } else if (cameraControlsRef?.current) {
+      // Vừa thả chuột → đọc vị trí camera hiện tại để khởi điểm lerp
+      // từ đúng chỗ user đã orbit tới (tránh nhảy về vị trí smooth cũ).
+      if (wasDraggingRef.current) {
+        cameraControlsRef.current.getPosition(cameraPosRef.current);
+        wasDraggingRef.current = false;
+      }
+
       const yaw = headingRef.current;
 
       // 1. Điểm look-at = vị trí nhân vật (cao thêm để ngắm vào ngực/đầu)
