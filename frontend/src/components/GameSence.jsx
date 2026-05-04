@@ -110,7 +110,7 @@ const GameSence = ({ onReady }) => {
       <Environment preset="city" />
       <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} near={0.5} far={5000} />
       <CameraControls ref={controlsRef} />
-      <Physics>
+      <Physics gravity={[0, -50, 0]}>
         <CharacterController cameraControlsRef={controlsRef}/>
         {/* {venoms.map((v) => (
           <VenomController

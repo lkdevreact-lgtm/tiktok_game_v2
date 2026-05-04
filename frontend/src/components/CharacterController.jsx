@@ -21,8 +21,10 @@ import {
   CHAR_BLOCK_RADIUS,
 } from "../stores/gameStore";
 
-const MOVE_SPEED = 13;
-const CAMERA_OFFSET = { x: 10, y: 5, z: -20 };
+const MOVE_SPEED = 30;
+const CAMERA_OFFSET = { x: 25, y: 18, z: -45 };
+const JUMP_FORCE = 25;
+const ATTACK_LUNGE_SPEED = 6;
 const SPIDERMAN_MODEL = "models/character/Spiderman.glb";
 const ATTACK_RANGE = 5;
 const SPIDERMAN_ONE_SHOTS = [
@@ -53,6 +55,8 @@ const CharacterController = ({ cameraControlsRef }) => {
   const kickMMALock = useRef(false);
   const comboPunchLock = useRef(false);
   const jumpTimer = useRef(null);
+  const jumpImpulseTimer = useRef(null);
+  const jumpImpulseApplied = useRef(false);
   const punchTimer = useRef(null);
   const kickTimer = useRef(null);
   const kickMMATimer = useRef(null);
@@ -159,6 +163,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       kickMMALock.current = false;
       comboPunchLock.current = false;
       clearTimeout(jumpTimer.current);
+      clearTimeout(jumpImpulseTimer.current);
       clearTimeout(punchTimer.current);
       clearTimeout(kickTimer.current);
       clearTimeout(kickMMATimer.current);
@@ -238,12 +243,15 @@ const CharacterController = ({ cameraControlsRef }) => {
 
     // Clamp Y velocity: không cho bị đẩy lên quá cao khi va bậc thềm
     let finalY = velocity.y;
-    if (finalY > 0) {
-      // Đang đi lên → giữ clamp thấp để không bay cao khi va bậc thang
+    if (jumpLock.current) {
+      // Đang nhảy → cho phép bay lên/rơi tự nhiên theo physics gravity
+      finalY = Math.max(finalY, -102);
+    } else if (finalY > 0) {
+      // Đang đi lên (không nhảy) → giữ clamp thấp để không bay cao khi va bậc thang
       finalY = Math.min(finalY, 1);
     } else {
-      // Đang rơi xuống → cho phép rơi nhanh (không để chậm nữa)
-      finalY = Math.max(finalY, -102); // -52 là giá trị tốt để thử đầu tiên
+      // Đang rơi xuống → cho phép rơi nhanh
+      finalY = Math.max(finalY, -102);
     }
     // Anti-overlap: chặn component velocity hướng về venom đang ở quá gần
     const curPos = rigidBodyRef.current.translation();
@@ -309,19 +317,56 @@ const CharacterController = ({ cameraControlsRef }) => {
       kickMMALock.current ||
       comboPunchLock.current;
 
+    // Helper: tìm closest venom và tính lunge velocity hướng về phía nó
+    const calcLungeVelocity = () => {
+      let closestEntry = null;
+      let closestDist = ATTACK_RANGE * 2;
+      for (const entry of gameState.venoms) {
+        if (entry.hp <= 0) continue;
+        const dx = pos.x - entry.position.x;
+        const dz = pos.z - entry.position.z;
+        const d = Math.sqrt(dx * dx + dz * dz);
+        if (d < closestDist) {
+          closestDist = d;
+          closestEntry = entry;
+        }
+      }
+      if (closestEntry && closestDist > 1.5) {
+        const dx = closestEntry.position.x - pos.x;
+        const dz = closestEntry.position.z - pos.z;
+        const d = Math.sqrt(dx * dx + dz * dz);
+        return { x: (dx / d) * ATTACK_LUNGE_SPEED, z: (dz / d) * ATTACK_LUNGE_SPEED };
+      }
+      // Nếu không có target → lunge theo hướng nhân vật đang quay
+      if (characterRef.current) {
+        const angle = characterRef.current.rotation.y;
+        return { x: Math.sin(angle) * ATTACK_LUNGE_SPEED * 0.5, z: Math.cos(angle) * ATTACK_LUNGE_SPEED * 0.5 };
+      }
+      return { x: 0, z: 0 };
+    };
+
     // --- Animation priority ---
     if (justPressedJump && !jumpLock.current) {
       jumpLock.current = true;
+      jumpImpulseApplied.current = false;
       setAnimation("Jump");
       gameState.spiderman.isAttacking = false;
       gameState.spiderman.attackType = null;
+      // Delay lực nhảy 300ms để đồng bộ với animation (nhân vật cúi xuống trước rồi mới bật lên)
+      clearTimeout(jumpImpulseTimer.current);
+      jumpImpulseTimer.current = setTimeout(() => {
+        if (rigidBodyRef.current && !jumpImpulseApplied.current) {
+          jumpImpulseApplied.current = true;
+          const curVel = rigidBodyRef.current.linvel();
+          rigidBodyRef.current.setLinvel({ x: curVel.x, y: JUMP_FORCE, z: curVel.z }, true);
+        }
+      }, 300);
       clearTimeout(jumpTimer.current);
       jumpTimer.current = setTimeout(() => {
         jumpLock.current = false;
-      }, 1200);
+      }, 2000);
     } else if (
       justPressedPunch &&
-      !isMoving &&
       !anyAttackLock &&
       !jumpLock.current
     ) {
@@ -331,6 +376,9 @@ const CharacterController = ({ cameraControlsRef }) => {
       gameState.spiderman.isAttacking = true;
       gameState.spiderman.attackType = "Punch";
       gameState.spiderman.hitDealt = false;
+      // Lunge nhẹ về phía target
+      const lunge = calcLungeVelocity();
+      rigidBodyRef.current.setLinvel({ x: lunge.x, y: finalY, z: lunge.z }, true);
       clearTimeout(punchTimer.current);
       punchTimer.current = setTimeout(() => {
         punchLock.current = false;
@@ -339,7 +387,6 @@ const CharacterController = ({ cameraControlsRef }) => {
       }, 800);
     } else if (
       justPressedKick &&
-      !isMoving &&
       !anyAttackLock &&
       !jumpLock.current
     ) {
@@ -349,6 +396,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       gameState.spiderman.isAttacking = true;
       gameState.spiderman.attackType = "Kick";
       gameState.spiderman.hitDealt = false;
+      const lunge = calcLungeVelocity();
+      rigidBodyRef.current.setLinvel({ x: lunge.x, y: finalY, z: lunge.z }, true);
       clearTimeout(kickTimer.current);
       kickTimer.current = setTimeout(() => {
         kickLock.current = false;
@@ -357,7 +406,6 @@ const CharacterController = ({ cameraControlsRef }) => {
       }, 1000);
     } else if (
       justPressedKickMMA &&
-      !isMoving &&
       !anyAttackLock &&
       !jumpLock.current
     ) {
@@ -367,6 +415,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       gameState.spiderman.isAttacking = true;
       gameState.spiderman.attackType = "KickMMA";
       gameState.spiderman.hitDealt = false;
+      const lunge = calcLungeVelocity();
+      rigidBodyRef.current.setLinvel({ x: lunge.x, y: finalY, z: lunge.z }, true);
       clearTimeout(kickMMATimer.current);
       kickMMATimer.current = setTimeout(() => {
         kickMMALock.current = false;
@@ -375,7 +425,6 @@ const CharacterController = ({ cameraControlsRef }) => {
       }, 1400);
     } else if (
       justPressedComboPunch &&
-      !isMoving &&
       !anyAttackLock &&
       !jumpLock.current
     ) {
@@ -385,6 +434,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       gameState.spiderman.isAttacking = true;
       gameState.spiderman.attackType = "ComboPunch";
       gameState.spiderman.hitDealt = false;
+      const lunge = calcLungeVelocity();
+      rigidBodyRef.current.setLinvel({ x: lunge.x, y: finalY, z: lunge.z }, true);
       clearTimeout(comboPunchTimer.current);
       comboPunchTimer.current = setTimeout(() => {
         comboPunchLock.current = false;
@@ -393,6 +444,13 @@ const CharacterController = ({ cameraControlsRef }) => {
       }, 1400);
     } else if (!jumpLock.current && !anyAttackLock) {
       setAnimation(isMoving ? "Run" : "Idle");
+    }
+
+    // Khi đang attack (lock) → dừng di chuyển, chỉ giữ lunge + gravity
+    if (anyAttackLock) {
+      const curVel = rigidBodyRef.current.linvel();
+      // Giảm dần lunge velocity (damping)
+      rigidBodyRef.current.setLinvel({ x: curVel.x * 0.9, y: curVel.y, z: curVel.z * 0.9 }, true);
     }
 
     // --- Spiderman hits closest Venom in range ---
@@ -445,7 +503,7 @@ const CharacterController = ({ cameraControlsRef }) => {
     // Camera follow (với raycast tránh toà nhà che)
     // Khi đang kéo chuột → để user tự xoay, thả ra thì follow lại (smooth).
     if (cameraControlsRef?.current && !isDraggingRef.current) {
-      const targetY = pos.y + 3;
+      const targetY = pos.y + 8;
       const desiredX = pos.x + CAMERA_OFFSET.x;
       const desiredY = pos.y + CAMERA_OFFSET.y;
       const desiredZ = pos.z + CAMERA_OFFSET.z;
