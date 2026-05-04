@@ -22,7 +22,16 @@ import {
 } from "../stores/gameStore";
 
 const MOVE_SPEED = 30;
-const CAMERA_OFFSET = { x: 25, y: 18, z: -45 };
+// --- Third-person camera (offset cố định theo HƯỚNG nhân vật, không theo world) ---
+const CAMERA_DISTANCE = 50;        // Khoảng cách camera phía sau lưng nhân vật
+const CAMERA_HEIGHT = 18;          // Camera cao hơn nhân vật bao nhiêu
+const CAMERA_LOOK_HEIGHT = 8;      // Điểm look-at (cao hơn gốc nhân vật)
+const CAMERA_POS_LERP = 0.12;      // Hệ số lerp vị trí camera (0..1) — nhỏ = mượt hơn
+const CAMERA_COLLISION_BIAS = 1.5; // Đệm tránh xuyên tường khi raycast
+const CAMERA_MIN_DISTANCE = 5;     // Khoảng cách tối thiểu khi va chạm
+// --- Steering controls (A/D quay, W/S tiến/lật-180-tiến) ---
+const TURN_SPEED = 3.0;            // Tốc độ quay khi nhấn A/D (radian/giây)
+const HEADING_LERP = 0.18;         // Hệ số lerp giữa heading hiện tại và target — nhỏ = quay mượt hơn
 const JUMP_FORCE = 25;
 const ATTACK_LUNGE_SPEED = 6;
 const SPIDERMAN_MODEL = "models/character/Spiderman.glb";
@@ -95,29 +104,21 @@ const CharacterController = ({ cameraControlsRef }) => {
     kickMMA: false,
     comboPunch: false,
     jump: false,
+    backward: false, // edge-detect S để lật 180° một lần
   });
   const hpRef = useRef(100);
   const isDead = useRef(false);
-  const isDraggingRef = useRef(false);
 
-  useEffect(() => {
-    const onDown = () => {
-      isDraggingRef.current = true;
-    };
-    const onUp = () => {
-      isDraggingRef.current = false;
-    };
-    window.addEventListener("pointerdown", onDown);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-    window.addEventListener("blur", onUp);
-    return () => {
-      window.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-      window.removeEventListener("blur", onUp);
-    };
-  }, []);
+  // === HEADING (rotation) state ===
+  // headingRef    : góc xoay hiện tại (đã lerp, áp lên character.rotation.y)
+  // targetHeading : góc đích — A/D cộng/trừ liên tục, S cộng PI một lần
+  const headingRef = useRef(0);
+  const targetHeadingRef = useRef(0);
+
+  // === Camera state ===
+  // Lưu vị trí camera đã smooth để render mượt giữa các frame
+  const cameraPosRef = useRef(new Vector3());
+  const cameraInitRef = useRef(false);
 
   const setSpidermanHp = useSetAtom(spidermanHpAtom);
   const setVenomHp = useSetAtom(venomHpAtom);
@@ -150,7 +151,7 @@ const CharacterController = ({ cameraControlsRef }) => {
     [setVenomHp],
   );
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!rigidBodyRef.current) return;
 
     // Reset khi Play Again (gameOver chuyển từ true -> false)
@@ -171,6 +172,10 @@ const CharacterController = ({ cameraControlsRef }) => {
       rigidBodyRef.current.setTranslation(SPIDERMAN_SPAWN, true);
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
       gameState.targetedVenomId = null;
+      // Reset heading + camera để không bị giật khi respawn
+      headingRef.current = 0;
+      targetHeadingRef.current = 0;
+      cameraInitRef.current = false;
       prevGameOver.current = false;
     }
     prevGameOver.current = gameOver;
@@ -188,43 +193,52 @@ const CharacterController = ({ cameraControlsRef }) => {
     }
 
     const velocity = rigidBodyRef.current.linvel();
+    const pos = rigidBodyRef.current.translation();
 
-    // Hướng di chuyển cố định theo offset camera ban đầu (không phụ thuộc xoay camera)
-    const camForward = new Vector3(
-      -CAMERA_OFFSET.x,
-      0,
-      -CAMERA_OFFSET.z,
-    ).normalize();
-    const camRight = new Vector3();
-    camRight.crossVectors(camForward, new Vector3(0, 1, 0)).normalize();
+    // ============================================================
+    // STEERING / HEADING UPDATE
+    // ------------------------------------------------------------
+    // - A/D: cộng/trừ targetHeading liên tục theo TURN_SPEED * delta
+    //        → quay nhân vật mượt khi giữ phím (không snap, không giật).
+    // - S  : edge-detect → cộng PI một lần (lật 180°), sau đó giữ S
+    //        chỉ tiếp tục di chuyển theo heading mới (không lật tiếp).
+    // - W/S: bấm = di chuyển forward theo headingRef hiện tại.
+    //
+    // headingRef LERP về targetHeadingRef → camera (cũng dùng heading)
+    // sẽ luôn nằm sau lưng và không bị "giật" khi target nhảy đột ngột.
+    // ============================================================
+    const justPressedBackward =
+      keys.current.backward && !prevKeys.current.backward;
+    prevKeys.current.backward = keys.current.backward;
 
+    if (keys.current.left) targetHeadingRef.current -= TURN_SPEED * delta;
+    if (keys.current.right) targetHeadingRef.current += TURN_SPEED * delta;
+    if (justPressedBackward) targetHeadingRef.current += Math.PI;
+
+    // Lerp current heading → target theo đường ngắn nhất (bọc -PI..PI)
+    let yawDiff = targetHeadingRef.current - headingRef.current;
+    while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+    while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+    headingRef.current += yawDiff * HEADING_LERP;
+
+    // Áp heading lên model nhân vật
+    if (characterRef.current) {
+      characterRef.current.rotation.y = headingRef.current;
+    }
+
+    // ============================================================
+    // MOVEMENT — W/S đi forward theo heading hiện tại
+    // ============================================================
+    const heading = headingRef.current;
+    const moveForward = keys.current.forward || keys.current.backward;
     let moveX = 0;
     let moveZ = 0;
-
-    if (keys.current.forward) {
-      moveX += camForward.x;
-      moveZ += camForward.z;
-    }
-    if (keys.current.backward) {
-      moveX -= camForward.x;
-      moveZ -= camForward.z;
-    }
-    if (keys.current.left) {
-      moveX -= camRight.x;
-      moveZ -= camRight.z;
-    }
-    if (keys.current.right) {
-      moveX += camRight.x;
-      moveZ += camRight.z;
+    if (moveForward) {
+      moveX = Math.sin(heading) * MOVE_SPEED;
+      moveZ = Math.cos(heading) * MOVE_SPEED;
     }
 
-    const length = Math.sqrt(moveX * moveX + moveZ * moveZ);
-    if (length > 0) {
-      moveX = (moveX / length) * MOVE_SPEED;
-      moveZ = (moveZ / length) * MOVE_SPEED;
-    }
-
-    const isMoving = length > 0;
+    const isMoving = moveForward;
 
     // Run sound: phát khi di chuyển, dừng khi đứng yên
     if (isMoving && !wasMovingRef.current) {
@@ -269,30 +283,26 @@ const CharacterController = ({ cameraControlsRef }) => {
     }
     rigidBodyRef.current.setLinvel({ x: moveX, y: finalY, z: moveZ }, true);
 
-    if (isMoving && characterRef.current) {
-      const angle = Math.atan2(moveX, moveZ);
-      characterRef.current.rotation.y = angle;
-    }
-
-    // Update shared position
-    const pos = rigidBodyRef.current.translation();
+    // Update shared position (pos đã được khai báo ở trên cùng useFrame)
     gameState.spiderman.position.x = pos.x;
     gameState.spiderman.position.y = pos.y;
     gameState.spiderman.position.z = pos.z;
 
-    // Khi đứng yên và có Venom đang bị nhắm → quay mặt Spiderman về phía Venom đó.
-    // Nếu target đã chết / không còn → clear targetedVenomId.
+    // Khi đứng yên (không di chuyển và không quay tay) và đang nhắm Venom
+    // → set targetHeading về phía Venom; heading sẽ tự lerp mượt sang đó
+    // ở frame sau, camera follow theo nên không giật.
+    const isTurningManually = keys.current.left || keys.current.right;
     if (gameState.targetedVenomId != null) {
       const target = gameState.venoms.find(
         (v) => v.id === gameState.targetedVenomId && v.hp > 0,
       );
       if (!target) {
         gameState.targetedVenomId = null;
-      } else if (!isMoving && characterRef.current) {
+      } else if (!isMoving && !isTurningManually) {
         const dxt = target.position.x - pos.x;
         const dzt = target.position.z - pos.z;
         if (Math.abs(dxt) + Math.abs(dzt) > 0.01) {
-          characterRef.current.rotation.y = Math.atan2(dxt, dzt);
+          targetHeadingRef.current = Math.atan2(dxt, dzt);
         }
       }
     }
@@ -500,21 +510,37 @@ const CharacterController = ({ cameraControlsRef }) => {
       }
     }
 
-    // Camera follow (với raycast tránh toà nhà che)
-    // Khi đang kéo chuột → để user tự xoay, thả ra thì follow lại (smooth).
-    if (cameraControlsRef?.current && !isDraggingRef.current) {
-      const targetY = pos.y + 8;
-      const desiredX = pos.x + CAMERA_OFFSET.x;
-      const desiredY = pos.y + CAMERA_OFFSET.y;
-      const desiredZ = pos.z + CAMERA_OFFSET.z;
+    // ============================================================
+    // THIRD-PERSON CAMERA FOLLOW
+    // ------------------------------------------------------------
+    // Yêu cầu:
+    //  - Camera luôn nằm SAU LƯNG nhân vật (offset rotate theo heading,
+    //    KHÔNG fix theo world axis).
+    //  - LookAt nhân vật.
+    //  - Lerp vị trí mượt → không giật khi đổi hướng đột ngột.
+    //  - Raycast → kéo vào nếu trúng tường/toà nhà.
+    //  - Vì heading đã được lerp riêng (HEADING_LERP), camera tự xoay
+    //    mượt theo lưng → không bao giờ orbit.
+    // ============================================================
+    if (cameraControlsRef?.current) {
+      const yaw = headingRef.current;
 
-      let camX = desiredX;
-      let camY = desiredY;
-      let camZ = desiredZ;
+      // 1. Điểm look-at = vị trí nhân vật (cao thêm để ngắm vào ngực/đầu)
+      const targetX = pos.x;
+      const targetY = pos.y + CAMERA_LOOK_HEIGHT;
+      const targetZ = pos.z;
 
-      const dirX = desiredX - pos.x;
+      // 2. Vị trí MONG MUỐN của camera = sau lưng theo heading.
+      //    forward của character = (sin yaw, 0, cos yaw)
+      //    → behind = pos - forward * DISTANCE
+      let desiredX = pos.x - Math.sin(yaw) * CAMERA_DISTANCE;
+      let desiredY = pos.y + CAMERA_HEIGHT;
+      let desiredZ = pos.z - Math.cos(yaw) * CAMERA_DISTANCE;
+
+      // 3. Raycast từ look-at → camera; trúng vật cản thì pull-in
+      const dirX = desiredX - targetX;
       const dirY = desiredY - targetY;
-      const dirZ = desiredZ - pos.z;
+      const dirZ = desiredZ - targetZ;
       const dirLen = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
 
       if (dirLen > 0.0001 && world) {
@@ -522,7 +548,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         const ny = dirY / dirLen;
         const nz = dirZ / dirLen;
         const ray = new rapier.Ray(
-          { x: pos.x, y: targetY, z: pos.z },
+          { x: targetX, y: targetY, z: targetZ },
           { x: nx, y: ny, z: nz },
         );
         const hit = world.castRay(
@@ -535,22 +561,40 @@ const CharacterController = ({ cameraControlsRef }) => {
           rigidBodyRef.current,
         );
         if (hit) {
-          const bias = 1.5;
-          const safe = Math.max(0, hit.timeOfImpact - bias);
-          camX = pos.x + nx * safe;
-          camY = targetY + ny * safe;
-          camZ = pos.z + nz * safe;
+          const safe = Math.max(
+            CAMERA_MIN_DISTANCE,
+            hit.timeOfImpact - CAMERA_COLLISION_BIAS,
+          );
+          desiredX = targetX + nx * safe;
+          desiredY = targetY + ny * safe;
+          desiredZ = targetZ + nz * safe;
         }
       }
 
+      // 4. Smooth vị trí camera bằng lerp.
+      //    Lần đầu (sau spawn/respawn) thì SNAP để không bay từ origin.
+      if (!cameraInitRef.current) {
+        cameraPosRef.current.set(desiredX, desiredY, desiredZ);
+        cameraInitRef.current = true;
+      } else {
+        cameraPosRef.current.x +=
+          (desiredX - cameraPosRef.current.x) * CAMERA_POS_LERP;
+        cameraPosRef.current.y +=
+          (desiredY - cameraPosRef.current.y) * CAMERA_POS_LERP;
+        cameraPosRef.current.z +=
+          (desiredZ - cameraPosRef.current.z) * CAMERA_POS_LERP;
+      }
+
+      // enableTransition = false vì đã smooth thủ công, để CameraControls
+      // không double-smooth (sẽ gây cảm giác trễ + rung).
       cameraControlsRef.current.setLookAt(
-        camX,
-        camY,
-        camZ,
-        pos.x,
-        pos.y,
-        pos.z,
-        true,
+        cameraPosRef.current.x,
+        cameraPosRef.current.y,
+        cameraPosRef.current.z,
+        targetX,
+        targetY,
+        targetZ,
+        false,
       );
     }
   });
