@@ -39,4 +39,6 @@ export const gameState = {
   },
   // Each entry: { id, position: {x,y,z}, isAttacking, attackType, hitDealt, hp }
   venoms: [],
+  // ID của Venom đang bị Spiderman nhắm (hiện mũi tên trên đầu, Spiderman quay mặt về)
+  targetedVenomId: null,
 };

@@ -10,7 +10,7 @@ import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import Character from "./ui/Character";
 import FloatingDamage from "./ui/FloatingDamage";
 import { Vector3 } from "three";
-import { useSetAtom, useAtomValue, useAtom } from "jotai";
+import { useSetAtom, useAtomValue } from "jotai";
 import {
   spidermanHpAtom,
   venomHpAtom,
@@ -19,8 +19,6 @@ import {
   gameState,
   blockIfTooClose,
   CHAR_BLOCK_RADIUS,
-  playCountAtom,
-  MAX_PLAYS,
 } from "../stores/gameStore";
 
 const MOVE_SPEED = 13;
@@ -39,7 +37,6 @@ const SPIDERMAN_DAMAGE = { Punch: 1, Kick: 1, KickMMA: 3, ComboPunch: 3 };
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
 const RUN_SOUND_SRC = "/sound/sound_run.MP3";
 const SPIDERMAN_SPAWN = { x: -241.48, y: -2.26, z: 311.29 };
-const FALL_OFF_Y = -10; // Y threshold để tính là rơi khỏi map
 
 const CharacterController = ({ cameraControlsRef }) => {
   const rigidBodyRef = useRef();
@@ -123,9 +120,6 @@ const CharacterController = ({ cameraControlsRef }) => {
   const setGameOver = useSetAtom(gameOverAtom);
   const setWinner = useSetAtom(winnerAtom);
   const gameOver = useAtomValue(gameOverAtom);
-  const [playCount, setPlayCount] = useAtom(playCountAtom);
-  const fallOffTriggeredRef = useRef(false);
-
   const prevGameOver = useRef(false);
 
   const takeDamage = useCallback(
@@ -164,7 +158,6 @@ const CharacterController = ({ cameraControlsRef }) => {
       kickLock.current = false;
       kickMMALock.current = false;
       comboPunchLock.current = false;
-      fallOffTriggeredRef.current = false;
       clearTimeout(jumpTimer.current);
       clearTimeout(punchTimer.current);
       clearTimeout(kickTimer.current);
@@ -172,54 +165,10 @@ const CharacterController = ({ cameraControlsRef }) => {
       clearTimeout(comboPunchTimer.current);
       rigidBodyRef.current.setTranslation(SPIDERMAN_SPAWN, true);
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      gameState.targetedVenomId = null;
       prevGameOver.current = false;
     }
     prevGameOver.current = gameOver;
-
-    // Rơi khỏi map → auto Play Again
-    const currentPos = rigidBodyRef.current.translation();
-    if (currentPos.y < FALL_OFF_Y && !fallOffTriggeredRef.current && !gameOver && !isDead.current) {
-      fallOffTriggeredRef.current = true;
-      // Dừng sound chạy
-      if (runSoundRef.current) {
-        runSoundRef.current.pause();
-        wasMovingRef.current = false;
-      }
-      // Tự động Play Again: reset mọi thứ ngay lập tức
-      if (playCount < MAX_PLAYS - 1) {
-        // Còn lượt → auto respawn
-        setPlayCount((prev) => prev + 1);
-        hpRef.current = 100;
-        setSpidermanHp(100);
-        isDead.current = false;
-        jumpLock.current = false;
-        punchLock.current = false;
-        kickLock.current = false;
-        kickMMALock.current = false;
-        comboPunchLock.current = false;
-        clearTimeout(jumpTimer.current);
-        clearTimeout(punchTimer.current);
-        clearTimeout(kickTimer.current);
-        clearTimeout(kickMMATimer.current);
-        clearTimeout(comboPunchTimer.current);
-        rigidBodyRef.current.setTranslation(SPIDERMAN_SPAWN, true);
-        rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
-        gameState.spiderman.isAttacking = false;
-        gameState.spiderman.attackType = null;
-        gameState.spiderman.hitDealt = false;
-        setAnimation("Idle");
-        fallOffTriggeredRef.current = false;
-      } else {
-        // Hết lượt → game over
-        setPlayCount((prev) => prev + 1);
-        isDead.current = true;
-        setGameOver(true);
-        setWinner("Venom");
-        hpRef.current = 0;
-        setSpidermanHp(0);
-      }
-      return;
-    }
 
     // Dead state
     if (isDead.current) {
@@ -322,6 +271,23 @@ const CharacterController = ({ cameraControlsRef }) => {
     gameState.spiderman.position.x = pos.x;
     gameState.spiderman.position.y = pos.y;
     gameState.spiderman.position.z = pos.z;
+
+    // Khi đứng yên và có Venom đang bị nhắm → quay mặt Spiderman về phía Venom đó.
+    // Nếu target đã chết / không còn → clear targetedVenomId.
+    if (gameState.targetedVenomId != null) {
+      const target = gameState.venoms.find(
+        (v) => v.id === gameState.targetedVenomId && v.hp > 0,
+      );
+      if (!target) {
+        gameState.targetedVenomId = null;
+      } else if (!isMoving && characterRef.current) {
+        const dxt = target.position.x - pos.x;
+        const dzt = target.position.z - pos.z;
+        if (Math.abs(dxt) + Math.abs(dzt) > 0.01) {
+          characterRef.current.rotation.y = Math.atan2(dxt, dzt);
+        }
+      }
+    }
 
     // --- Edge detection: chỉ trigger khi nhấn lần đầu ---
     const justPressedJump = keys.current.jump && !prevKeys.current.jump;
@@ -447,6 +413,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       if (closestEntry) {
         dealDamageToVenom(closestEntry, dmg);
         gameState.spiderman.hitDealt = true;
+        gameState.targetedVenomId = closestEntry.id;
         // Floating damage popup
         const popupId = damageIdRef.current++;
         setDamagePopups((prev) => [
@@ -555,7 +522,7 @@ const CharacterController = ({ cameraControlsRef }) => {
           <Character
             modelPath={SPIDERMAN_MODEL}
             animation={animation}
-            scale={3}
+            scale={10}
             oneShotList={SPIDERMAN_ONE_SHOTS}
           />
         </group>

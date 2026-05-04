@@ -6,6 +6,7 @@ import {
   interactionGroups,
 } from "@react-three/rapier";
 import Character from "./ui/Character";
+import TargetArrow from "./ui/TargetArrow";
 import { useAtomValue } from "jotai";
 import {
   gameState,
@@ -25,6 +26,11 @@ const FADE_DURATION = 2000; // thời gian fade opacity
 
 const VENOM_ONE_SHOTS = ["Punch", "Die"];
 
+// Stuck detection: nếu Venom định di chuyển nhưng vận tốc gần 0 → đang đâm tường
+const STUCK_SPEED_THRESHOLD = 0.5;
+const STUCK_FRAME_THRESHOLD = 20; // ~0.33s @ 60fps
+const SIDESTEP_FRAMES = 45; // né 90° trong ~0.75s rồi thử lại
+
 const VenomController = ({ id, spawnPosition, onDespawn }) => {
   const rigidBodyRef = useRef();
   const characterRef = useRef();
@@ -42,6 +48,10 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
   const entryRef = useRef(null);
   const dieStartRef = useRef(0);
   const [opacity, setOpacity] = useState(1);
+  const [isTargeted, setIsTargeted] = useState(false);
+  const stuckFramesRef = useRef(0);
+  const sidestepDirRef = useRef(0); // 0 = off, +1/-1 = hướng né
+  const sidestepFramesRef = useRef(0);
 
   // Play spawn sound khi Venom xuất hiện
   useEffect(() => {
@@ -64,12 +74,20 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
     return () => {
       const idx = gameState.venoms.indexOf(entry);
       if (idx >= 0) gameState.venoms.splice(idx, 1);
+      if (gameState.targetedVenomId === id) gameState.targetedVenomId = null;
       clearTimeout(punchTimer.current);
     };
   }, [id, spawnPosition.x, spawnPosition.y, spawnPosition.z]);
 
   useFrame(() => {
     if (!rigidBodyRef.current || !entryRef.current) return;
+
+    // Sync target flag mỗi frame
+    const shouldBeTargeted =
+      gameState.targetedVenomId === id && !isDead.current;
+    if (shouldBeTargeted !== isTargeted) {
+      setIsTargeted(shouldBeTargeted);
+    }
 
     // Play Again: gameOver chuyển true → false → reset combat state, giữ vị trí
     if (prevGameOverRef.current && !gameOver) {
@@ -88,6 +106,9 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
       entry.isAttacking = false;
       entry.attackType = null;
       entry.hitDealt = false;
+      stuckFramesRef.current = 0;
+      sidestepDirRef.current = 0;
+      sidestepFramesRef.current = 0;
       setOpacity(1);
       setAnimation("Idle");
       prevGameOverRef.current = false;
@@ -118,6 +139,7 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
       entry.attackType = null;
       punchLock.current = false;
       clearTimeout(punchTimer.current);
+      if (gameState.targetedVenomId === id) gameState.targetedVenomId = null;
       return;
     }
     if (isDead.current) {
@@ -179,8 +201,45 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
     }
 
     if (dist > ATTACK_RANGE && !punchLock.current) {
+      // Stuck detection: setLinvel set velocity trực tiếp, nhưng khi va tường
+      // physics engine xoá component theo normal → linvel().xz sẽ ~0.
+      const horizontalSpeed = Math.sqrt(
+        velocity.x * velocity.x + velocity.z * velocity.z,
+      );
+      if (horizontalSpeed < STUCK_SPEED_THRESHOLD) {
+        stuckFramesRef.current++;
+      } else if (sidestepFramesRef.current === 0) {
+        stuckFramesRef.current = 0;
+      }
+
+      // Kích hoạt sidestep khi stuck đủ lâu
+      if (
+        sidestepDirRef.current === 0 &&
+        stuckFramesRef.current > STUCK_FRAME_THRESHOLD
+      ) {
+        sidestepDirRef.current = Math.random() > 0.5 ? 1 : -1;
+        sidestepFramesRef.current = SIDESTEP_FRAMES;
+      }
+
       let nx = (dx / dist) * MOVE_SPEED;
       let nz = (dz / dist) * MOVE_SPEED;
+
+      // Đang sidestep → xoay hướng di chuyển 90° để đi dọc tường
+      if (sidestepFramesRef.current > 0) {
+        const angle = sidestepDirRef.current * (Math.PI / 2);
+        const cs = Math.cos(angle);
+        const sn = Math.sin(angle);
+        const rx = nx * cs - nz * sn;
+        const rz = nx * sn + nz * cs;
+        nx = rx;
+        nz = rz;
+        sidestepFramesRef.current--;
+        if (sidestepFramesRef.current <= 0) {
+          sidestepDirRef.current = 0;
+          stuckFramesRef.current = 0;
+        }
+      }
+
       // Anti-overlap: chặn với Spiderman + các venom khác
       [nx, nz] = blockIfTooClose(
         venomPos.x,
@@ -210,6 +269,9 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
     } else if (dist <= ATTACK_RANGE && !punchLock.current) {
       rigidBodyRef.current.setLinvel({ x: 0, y: clampedY, z: 0 }, true);
       punchLock.current = true;
+      stuckFramesRef.current = 0;
+      sidestepDirRef.current = 0;
+      sidestepFramesRef.current = 0;
       setAnimation("Punch");
       entry.isAttacking = true;
       entry.attackType = "Punch";
@@ -250,6 +312,7 @@ const VenomController = ({ id, spawnPosition, onDespawn }) => {
           opacity={opacity}
         />
       </group>
+      {isTargeted && <TargetArrow />}
     </RigidBody>
   );
 };

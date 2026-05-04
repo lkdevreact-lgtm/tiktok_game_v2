@@ -5,7 +5,7 @@ import {
   OrbitControls,
   PerspectiveCamera,
 } from "@react-three/drei";
-import { CuboidCollider, MeshCollider, Physics, RigidBody, interactionGroups } from "@react-three/rapier";
+import { Physics, RigidBody, interactionGroups } from "@react-three/rapier";
 import MapStreet from "./ui/MapStreet";
 import { useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
@@ -111,20 +111,17 @@ const GameSence = ({ onReady }) => {
       <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} near={0.5} far={5000} />
       <CameraControls ref={controlsRef} />
       <Physics>
-        <CharacterController cameraControlsRef={controlsRef}/>
-        {venoms.map((v) => (
+        <CharacterController />
+        {/* {venoms.map((v) => (
           <VenomController
             key={v.id}
             id={v.id}
             spawnPosition={v.spawnPosition}
             onDespawn={handleDespawn}
           />
-        ))} 
-        <RigidBody type="fixed" colliders="trimesh" position={[17, -10, 0]} scale={10} collisionGroups={interactionGroups([1], [0])}>
+        ))}  */}
+        <RigidBody type="fixed" colliders="trimesh" position={[17, -10, 0]} scale={4} collisionGroups={interactionGroups([1], [0])}>
           <MapStreet />
-        </RigidBody>
-        <RigidBody type="fixed" colliders={false} collisionGroups={interactionGroups([1], [0])}>
-          <CuboidCollider args={[350, 0.1, 20]} position={[7, -5.5, 0]} />
         </RigidBody>
       </Physics>
     </group>
