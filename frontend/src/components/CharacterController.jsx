@@ -104,7 +104,6 @@ const CharacterController = ({ cameraControlsRef }) => {
     kickMMA: false,
     comboPunch: false,
     jump: false,
-    backward: false, // edge-detect S để lật 180° một lần
   });
   const hpRef = useRef(100);
   const isDead = useRef(false);
@@ -225,21 +224,14 @@ const CharacterController = ({ cameraControlsRef }) => {
     // STEERING / HEADING UPDATE
     // ------------------------------------------------------------
     // - A/D: cộng/trừ targetHeading liên tục theo TURN_SPEED * delta
-    //        → quay nhân vật mượt khi giữ phím (không snap, không giật).
-    // - S  : edge-detect → cộng PI một lần (lật 180°), sau đó giữ S
-    //        chỉ tiếp tục di chuyển theo heading mới (không lật tiếp).
-    // - W/S: bấm = di chuyển forward theo headingRef hiện tại.
-    //
-    // headingRef LERP về targetHeadingRef → camera (cũng dùng heading)
-    // sẽ luôn nằm sau lưng và không bị "giật" khi target nhảy đột ngột.
+    //        → quay nhân vật mượt khi giữ phím.
+    // - W  : đi tới (forward theo heading).
+    // - S  : đi lùi (backward = -forward), KHÔNG lật hướng nhân vật.
+    //        → camera vẫn ở sau lưng (vẫn theo heading), nhân vật đi giật lùi.
     // ============================================================
-    const justPressedBackward =
-      keys.current.backward && !prevKeys.current.backward;
-    prevKeys.current.backward = keys.current.backward;
-
-    if (keys.current.left) targetHeadingRef.current -= TURN_SPEED * delta;
-    if (keys.current.right) targetHeadingRef.current += TURN_SPEED * delta;
-    if (justPressedBackward) targetHeadingRef.current += Math.PI;
+    // A/D đảo chiều theo yêu cầu: A → quay phải, D → quay trái
+    if (keys.current.left) targetHeadingRef.current += TURN_SPEED * delta;
+    if (keys.current.right) targetHeadingRef.current -= TURN_SPEED * delta;
 
     // Lerp current heading → target theo đường ngắn nhất (bọc -PI..PI)
     let yawDiff = targetHeadingRef.current - headingRef.current;
@@ -253,18 +245,20 @@ const CharacterController = ({ cameraControlsRef }) => {
     }
 
     // ============================================================
-    // MOVEMENT — W/S đi forward theo heading hiện tại
+    // MOVEMENT — W tiến, S lùi (dấu ngược) theo heading hiện tại
     // ============================================================
     const heading = headingRef.current;
-    const moveForward = keys.current.forward || keys.current.backward;
+    let moveDir = 0;
+    if (keys.current.forward) moveDir += 1;
+    if (keys.current.backward) moveDir -= 1;
     let moveX = 0;
     let moveZ = 0;
-    if (moveForward) {
-      moveX = Math.sin(heading) * MOVE_SPEED;
-      moveZ = Math.cos(heading) * MOVE_SPEED;
+    if (moveDir !== 0) {
+      moveX = Math.sin(heading) * MOVE_SPEED * moveDir;
+      moveZ = Math.cos(heading) * MOVE_SPEED * moveDir;
     }
 
-    const isMoving = moveForward;
+    const isMoving = moveDir !== 0;
 
     // Run sound: phát khi di chuyển, dừng khi đứng yên
     if (isMoving && !wasMovingRef.current) {
@@ -400,7 +394,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       clearTimeout(jumpTimer.current);
       jumpTimer.current = setTimeout(() => {
         jumpLock.current = false;
-      }, 2000);
+      }, 1200);
     } else if (
       justPressedPunch &&
       !anyAttackLock &&
