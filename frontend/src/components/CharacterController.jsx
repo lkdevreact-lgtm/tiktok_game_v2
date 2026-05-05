@@ -34,7 +34,7 @@ const TURN_SPEED = 3.0;            // Tốc độ quay khi nhấn A/D (radian/gi
 const HEADING_LERP = 0.18;         // Hệ số lerp giữa heading hiện tại và target — nhỏ = quay mượt hơn
 const JUMP_FORCE = 25;
 const ATTACK_LUNGE_SPEED = 6;
-const SPIDERMAN_MODEL = "models/character/Spiderman.glb";
+const SPIDERMAN_MODEL = "models/character/Yaski.glb";
 const ATTACK_RANGE = 5;
 const SPIDERMAN_ONE_SHOTS = [
   "Punch",
