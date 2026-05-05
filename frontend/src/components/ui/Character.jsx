@@ -133,4 +133,7 @@ const Character = ({
   );
 };
 
+useGLTF.preload("models/character/Yaski.glb");
+useGLTF.preload("models/character/Venom.glb");
+
 export default Character;
