@@ -6,8 +6,10 @@ const SHOW_STATS = import.meta.env.DEV;
 import GameSence from './components/GameSence'
 import HealthBarHUD from './components/ui/HealthBarHUD'
 import GameLoader from './components/ui/GameLoader'
+import TikTokConnectForm from './components/ui/TikTokConnectForm'
 
 const App = () => {
+  const [tiktokSession, setTiktokSession] = useState(null);
   const [ready, setReady] = useState(false);
   const [showLoader, setShowLoader] = useState(true);
 
@@ -18,6 +20,14 @@ const App = () => {
   const handleLoaderDone = useCallback(() => {
     setShowLoader(false);
   }, []);
+
+  const handleConnected = useCallback((session) => {
+    setTiktokSession(session);
+  }, []);
+
+  if (!tiktokSession) {
+    return <TikTokConnectForm onConnected={handleConnected} />;
+  }
 
   return (
     <div className="relative w-screen h-screen">
