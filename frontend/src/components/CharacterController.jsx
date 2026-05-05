@@ -645,7 +645,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       >
         <CapsuleCollider
           args={[1.3, 2.5]}
-          position={[0, 3.811, 0]}
+          position={[0, 3.311, 0]}
           collisionGroups={interactionGroups([0], [1])}
         />
 

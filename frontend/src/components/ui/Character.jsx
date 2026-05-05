@@ -1,4 +1,5 @@
 import { useGLTF } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import { AnimationMixer, FrontSide, LoopOnce } from "three";
 import { SkeletonUtils } from "three-stdlib";
@@ -58,10 +59,9 @@ const Character = ({
 
   const prevAnimation = useRef(null);
 
-  useEffect(() => {
-    const id = setInterval(() => mixer.update(1 / 60), 1000 / 60);
-    return () => clearInterval(id);
-  }, [mixer]);
+  useFrame((_, delta) => {
+    mixer.update(delta);
+  });
 
   useEffect(() => {
     const clip = clipMap[animation];
