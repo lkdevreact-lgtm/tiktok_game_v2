@@ -6,11 +6,9 @@ import { SkeletonUtils } from "three-stdlib";
 
 const DEFAULT_ONE_SHOTS = new Set(["Punch", "Kick", "Jump"]);
 const COMBAT_ANIMS = new Set(["Punch", "Kick", "KickUp", "HookPunch"]);
-// Combat animations blend faster for snappy feel; others blend smoothly
-const COMBAT_FADE_IN = 0.08;
-const COMBAT_FADE_OUT = 0.1;
-const NORMAL_FADE_IN = 0.3;
-const NORMAL_FADE_OUT = 0.3;
+// Combat transitions blend faster for snappy feel; others blend smoothly
+const COMBAT_BLEND = 0.15;
+const NORMAL_BLEND = 0.25;
 // Speed multipliers for more impactful combat animations
 const ANIM_TIME_SCALE = {
   Punch: 1.3,
@@ -68,10 +66,10 @@ const Character = ({
     if (!clip) return;
 
     const isCombat = COMBAT_ANIMS.has(animation);
-    const fadeIn = isCombat ? COMBAT_FADE_IN : NORMAL_FADE_IN;
-    const fadeOut = isCombat ? COMBAT_FADE_OUT : NORMAL_FADE_OUT;
     const wasCombat = COMBAT_ANIMS.has(prevAnimation.current);
-    const prevFadeOut = wasCombat ? COMBAT_FADE_OUT : NORMAL_FADE_OUT;
+    // Unified blend duration — crossFadeFrom keeps total weight = 1 throughout,
+    // so there is no moment where the skeleton falls back to bind pose (T-pose).
+    const fadeDuration = isCombat || wasCombat ? COMBAT_BLEND : NORMAL_BLEND;
 
     const action = mixer.clipAction(clip);
 
@@ -80,23 +78,19 @@ const Character = ({
       action.clampWhenFinished = true;
     }
 
-    // Apply time scale for combat animations
     action.timeScale = ANIM_TIME_SCALE[animation] ?? 1;
 
-    action.reset().fadeIn(fadeIn).play();
-
-    if (prevAnimation.current && prevAnimation.current !== animation) {
-      const prevClip = clipMap[prevAnimation.current];
-      if (prevClip) {
-        mixer.clipAction(prevClip).fadeOut(prevFadeOut);
-      }
+    const prevName = prevAnimation.current;
+    if (prevName && prevName !== animation && clipMap[prevName]) {
+      const prevAction = mixer.clipAction(clipMap[prevName]);
+      // crossFadeFrom: ramp prevAction weight 1→0 and this action weight 0→1
+      // simultaneously over fadeDuration — total weight stays 1, no T-pose.
+      action.reset().crossFadeFrom(prevAction, fadeDuration, true).play();
+    } else {
+      action.reset().fadeIn(fadeDuration).play();
     }
 
     prevAnimation.current = animation;
-
-    return () => {
-      action.fadeOut(fadeOut);
-    };
   }, [animation, mixer, clipMap, oneShots]);
 
   useEffect(() => {
