@@ -5,7 +5,7 @@ import { AnimationMixer, FrontSide, LoopOnce } from "three";
 import { SkeletonUtils } from "three-stdlib";
 
 const DEFAULT_ONE_SHOTS = new Set(["Punch", "Kick", "Jump"]);
-const COMBAT_ANIMS = new Set(["Punch", "Kick", "KickMMA", "ComboPunch"]);
+const COMBAT_ANIMS = new Set(["Punch", "Kick", "KickUp", "HookPunch"]);
 // Combat animations blend faster for snappy feel; others blend smoothly
 const COMBAT_FADE_IN = 0.08;
 const COMBAT_FADE_OUT = 0.1;
@@ -15,8 +15,8 @@ const NORMAL_FADE_OUT = 0.3;
 const ANIM_TIME_SCALE = {
   Punch: 1.3,
   Kick: 1.2,
-  KickMMA: 1.15,
-  ComboPunch: 1.25,
+  KickUp: 1.15,
+  HookPunch: 1.25,
 };
 
 const Character = ({

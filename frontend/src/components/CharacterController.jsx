@@ -39,12 +39,12 @@ const ATTACK_RANGE = 5;
 const SPIDERMAN_ONE_SHOTS = [
   "Punch",
   "Kick",
-  "KickMMA",
-  "ComboPunch",
+  "KickUp",
+  "HookPunch",
   "Jump",
   "Die",
 ];
-const SPIDERMAN_DAMAGE = { Punch: 1, Kick: 1, KickMMA: 3, ComboPunch: 3 };
+const SPIDERMAN_DAMAGE = { Punch: 1, Kick: 1, KickUp: 3, HookPunch: 3 };
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
 const RUN_SOUND_SRC = "/sound/sound_run.MP3";
 const SPIDERMAN_SPAWN = { x: -51.48, y: -2.26, z: 311.29 };
@@ -61,15 +61,15 @@ const CharacterController = ({ cameraControlsRef }) => {
   const jumpLock = useRef(false);
   const punchLock = useRef(false);
   const kickLock = useRef(false);
-  const kickMMALock = useRef(false);
-  const comboPunchLock = useRef(false);
+  const kickUpLock = useRef(false);
+  const hookPunchLock = useRef(false);
   const jumpTimer = useRef(null);
   const jumpImpulseTimer = useRef(null);
   const jumpImpulseApplied = useRef(false);
   const punchTimer = useRef(null);
   const kickTimer = useRef(null);
-  const kickMMATimer = useRef(null);
-  const comboPunchTimer = useRef(null);
+  const kickUpTimer = useRef(null);
+  const hookPunchTimer = useRef(null);
   const punchSoundRef = useRef(null);
   const runSoundRef = useRef(null);
   const wasMovingRef = useRef(false);
@@ -101,8 +101,8 @@ const CharacterController = ({ cameraControlsRef }) => {
   const prevKeys = useRef({
     punch: false,
     kick: false,
-    kickMMA: false,
-    comboPunch: false,
+    kickUp: false,
+    hookPunch: false,
     jump: false,
   });
   const hpRef = useRef(100);
@@ -186,14 +186,14 @@ const CharacterController = ({ cameraControlsRef }) => {
       jumpLock.current = false;
       punchLock.current = false;
       kickLock.current = false;
-      kickMMALock.current = false;
-      comboPunchLock.current = false;
+      kickUpLock.current = false;
+      hookPunchLock.current = false;
       clearTimeout(jumpTimer.current);
       clearTimeout(jumpImpulseTimer.current);
       clearTimeout(punchTimer.current);
       clearTimeout(kickTimer.current);
-      clearTimeout(kickMMATimer.current);
-      clearTimeout(comboPunchTimer.current);
+      clearTimeout(kickUpTimer.current);
+      clearTimeout(hookPunchTimer.current);
       rigidBodyRef.current.setTranslation(SPIDERMAN_SPAWN, true);
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
       gameState.targetedVenomId = null;
@@ -331,21 +331,21 @@ const CharacterController = ({ cameraControlsRef }) => {
     const justPressedJump = keys.current.jump && !prevKeys.current.jump;
     const justPressedPunch = keys.current.punch && !prevKeys.current.punch;
     const justPressedKick = keys.current.kick && !prevKeys.current.kick;
-    const justPressedKickMMA =
-      keys.current.kickMMA && !prevKeys.current.kickMMA;
-    const justPressedComboPunch =
-      keys.current.comboPunch && !prevKeys.current.comboPunch;
+    const justPressedKickUp =
+      keys.current.kickUp && !prevKeys.current.kickUp;
+    const justPressedHookPunch =
+      keys.current.hookPunch && !prevKeys.current.hookPunch;
     prevKeys.current.jump = keys.current.jump;
     prevKeys.current.punch = keys.current.punch;
     prevKeys.current.kick = keys.current.kick;
-    prevKeys.current.kickMMA = keys.current.kickMMA;
-    prevKeys.current.comboPunch = keys.current.comboPunch;
+    prevKeys.current.kickUp = keys.current.kickUp;
+    prevKeys.current.hookPunch = keys.current.hookPunch;
 
     const anyAttackLock =
       punchLock.current ||
       kickLock.current ||
-      kickMMALock.current ||
-      comboPunchLock.current;
+      kickUpLock.current ||
+      hookPunchLock.current;
 
     // Helper: tìm closest venom và tính lunge velocity hướng về phía nó
     const calcLungeVelocity = () => {
@@ -435,45 +435,47 @@ const CharacterController = ({ cameraControlsRef }) => {
         gameState.spiderman.attackType = null;
       }, 1000);
     } else if (
-      justPressedKickMMA &&
+      justPressedKickUp &&
       !anyAttackLock &&
       !jumpLock.current
     ) {
-      kickMMALock.current = true;
-      setAnimation("KickMMA");
+      kickUpLock.current = true;
+      setAnimation("KickUp");
       playPunchSound();
       gameState.spiderman.isAttacking = true;
-      gameState.spiderman.attackType = "KickMMA";
+      gameState.spiderman.attackType = "KickUp";
       gameState.spiderman.hitDealt = false;
       const lunge = calcLungeVelocity();
       rigidBodyRef.current.setLinvel({ x: lunge.x, y: finalY, z: lunge.z }, true);
-      clearTimeout(kickMMATimer.current);
-      kickMMATimer.current = setTimeout(() => {
-        kickMMALock.current = false;
+      clearTimeout(kickUpTimer.current);
+      kickUpTimer.current = setTimeout(() => {
+        kickUpLock.current = false;
         gameState.spiderman.isAttacking = false;
         gameState.spiderman.attackType = null;
       }, 1400);
     } else if (
-      justPressedComboPunch &&
+      justPressedHookPunch &&
       !anyAttackLock &&
       !jumpLock.current
     ) {
-      comboPunchLock.current = true;
-      setAnimation("ComboPunch");
+      hookPunchLock.current = true;
+      setAnimation("HookPunch");
       playPunchSound();
       gameState.spiderman.isAttacking = true;
-      gameState.spiderman.attackType = "ComboPunch";
+      gameState.spiderman.attackType = "HookPunch";
       gameState.spiderman.hitDealt = false;
       const lunge = calcLungeVelocity();
       rigidBodyRef.current.setLinvel({ x: lunge.x, y: finalY, z: lunge.z }, true);
-      clearTimeout(comboPunchTimer.current);
-      comboPunchTimer.current = setTimeout(() => {
-        comboPunchLock.current = false;
+      clearTimeout(hookPunchTimer.current);
+      hookPunchTimer.current = setTimeout(() => {
+        hookPunchLock.current = false;
         gameState.spiderman.isAttacking = false;
         gameState.spiderman.attackType = null;
       }, 1400);
     } else if (!jumpLock.current && !anyAttackLock) {
-      setAnimation(isMoving ? "Run" : "Idle");
+      if (!isMoving) setAnimation("Idle");
+      else if (moveDir < 0) setAnimation("RunBackward");
+      else setAnimation("Run");
     }
 
     // Khi đang attack (lock) → dừng di chuyển, chỉ giữ lunge + gravity

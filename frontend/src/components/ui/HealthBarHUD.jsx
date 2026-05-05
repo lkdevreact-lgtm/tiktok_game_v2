@@ -113,12 +113,12 @@ const HealthBarHUD = () => {
         <div className="w-px bg-white/20" />
         <div className="flex items-center gap-1.5">
           <kbd className="px-1.5 py-0.5 bg-pink-500/40 rounded text-white text-xs font-bold">F</kbd>
-          <span className="text-white/70 text-xs">KickMMA</span>
+          <span className="text-white/70 text-xs">KickUp</span>
         </div>
         <div className="w-px bg-white/20" />
         <div className="flex items-center gap-1.5">
           <kbd className="px-1.5 py-0.5 bg-purple-500/40 rounded text-white text-xs font-bold">E</kbd>
-          <span className="text-white/70 text-xs">ComboPunch</span>
+          <span className="text-white/70 text-xs">HookPunch</span>
         </div>
         <div className="w-px bg-white/20" />
         <div className="flex items-center gap-1.5">
