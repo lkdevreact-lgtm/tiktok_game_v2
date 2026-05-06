@@ -18,6 +18,11 @@ const NPC_SPAWN_INTERVAL = 15000;
 const NPC_SPAWN_MIN_DIST = 30;
 const NPC_SPAWN_MAX_DIST = 60;
 
+// Lock vertical (polar) rotation: chỉ cho xoay ngang quanh nhân vật.
+// Polar angle ≈ atan2(CAMERA_DISTANCE, CAMERA_HEIGHT) trong CharacterController
+// = atan2(50, 18) ≈ 1.226 rad ≈ 70° (camera nhìn xuống nhẹ từ phía sau).
+const CAMERA_POLAR_ANGLE = Math.atan2(50, 18);
+
 const randomSpawnNearUserHero = () => {
   const sp = gameState.userhero.position;
   const angle = Math.random() * Math.PI * 2;
@@ -116,7 +121,11 @@ const GameSence = ({ onReady }) => {
         near={0.5}
         far={5000}
       />
-      <CameraControls ref={controlsRef} />
+      <CameraControls
+        ref={controlsRef}
+        minPolarAngle={CAMERA_POLAR_ANGLE}
+        maxPolarAngle={CAMERA_POLAR_ANGLE}
+      />
       <Physics gravity={[0,-55,0]}>
         <CharacterController cameraControlsRef={controlsRef} />
         {/* {npc.map((n) => (

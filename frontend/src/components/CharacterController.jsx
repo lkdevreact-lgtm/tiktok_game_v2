@@ -138,6 +138,13 @@ const CharacterController = ({ cameraControlsRef }) => {
     }
   }, []);
 
+  const stopHelloSound = useCallback(() => {
+    if (helloSoundRef.current) {
+      helloSoundRef.current.pause();
+      helloSoundRef.current.currentTime = 0;
+    }
+  }, []);
+
   // Initialize run sound once
   useEffect(() => {
     const audio = new Audio(RUN_SOUND_SRC);
@@ -252,6 +259,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       clearTimeout(hookPunchTimer.current);
       clearTimeout(hitReactionTimer.current);
       clearTimeout(helloTimer.current);
+      stopHelloSound();
       rigidBodyRef.current.setTranslation(USER_HERO_SPAWN, true);
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
       gameState.targetedNPCId = null;
@@ -441,12 +449,17 @@ const CharacterController = ({ cameraControlsRef }) => {
         const dot = dxn * fx + dzn * fz;
         viewingFront = dot > FRONT_VIEW_DOT_THRESHOLD;
       }
+      // Hello chỉ trigger khi nhân vật đang RẢNH:
+      // không combat (anyAttackLock đã gồm cả HitReaction), không nhảy, không di chuyển.
+      const canTriggerHello =
+        !helloLock.current &&
+        !anyAttackLock &&
+        !jumpLock.current &&
+        !isMoving;
       if (
         viewingFront &&
         !wasViewingFrontRef.current &&
-        !helloLock.current &&
-        !anyAttackLock &&
-        !jumpLock.current
+        canTriggerHello
       ) {
         helloLock.current = true;
         setAnimation("Hello");
@@ -454,25 +467,33 @@ const CharacterController = ({ cameraControlsRef }) => {
         clearTimeout(helloTimer.current);
         helloTimer.current = setTimeout(() => {
           helloLock.current = false;
+          stopHelloSound();
         }, lockMs.Hello);
       }
+      // Track viewing-front thuần — KHÔNG kết hợp với canTriggerHello.
+      // Nếu kết hợp, lúc Hello đang chạy canTrigger=false → wasViewingFront
+      // reset về false → khi anim xong, canTrigger=true lại → re-trigger ngay
+      // dù user vẫn đứng yên nhìn mặt → loop sound vô tận.
+      // Chỉ trigger lại khi user "rời mắt" rồi quay lại (false→true).
       wasViewingFrontRef.current = viewingFront;
     } else {
       // Khi không drag → reset để lần drag sau, transition vẫn detect được.
       wasViewingFrontRef.current = false;
     }
 
-    // Bấm phím tấn công/nhảy → cancel Hello để animation ngắt sạch.
+    // Cancel Hello khi nhân vật bắt đầu di chuyển / combat / nhảy.
     if (
       helloLock.current &&
       (justPressedJump ||
         justPressedPunch ||
         justPressedKick ||
         justPressedKickUp ||
-        justPressedHookPunch)
+        justPressedHookPunch ||
+        isMoving)
     ) {
       helloLock.current = false;
       clearTimeout(helloTimer.current);
+      stopHelloSound();
     }
 
     // Helper: tìm closest NPC Monster và tính lunge velocity hướng về phía nó
