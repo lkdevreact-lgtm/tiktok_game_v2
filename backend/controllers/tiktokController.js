@@ -1,11 +1,13 @@
 import {
   connectToTikTokLive,
   disconnectFromTikTokLive,
+  getConnection,
   isConnected,
   normalizeUsername,
   validateUsername,
 } from "../services/tiktokLiveService.js";
 import { upsertConnectedUser } from "../services/tiktokUserRepository.js";
+import { attachTikTokEvents } from "../socket/tiktokEventHandler.js";
 
 export async function connectTikTok(req, res) {
   const username = normalizeUsername(req.body?.username);
@@ -16,6 +18,11 @@ export async function connectTikTok(req, res) {
 
   try {
     const result = await connectToTikTokLive(username);
+
+    // Gắn Socket.IO event handlers lên connection để broadcast live events
+    const conn = getConnection(username);
+    if (conn) attachTikTokEvents(conn, username);
+
     let user = null;
     try {
       user = await upsertConnectedUser(username);

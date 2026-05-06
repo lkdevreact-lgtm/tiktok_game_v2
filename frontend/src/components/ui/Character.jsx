@@ -127,7 +127,7 @@ const Character = ({
   );
 };
 
-useGLTF.preload("models/character/HeroGirl.glb");
+useGLTF.preload("models/character/test.glb");
 useGLTF.preload("models/character/NPC1.glb");
 
 export default Character;

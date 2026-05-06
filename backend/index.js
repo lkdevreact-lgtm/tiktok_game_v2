@@ -1,8 +1,10 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { createServer } from "node:http";
 
 import routes from "./routes/index.js";
+import { initSocketIO } from "./socket/socketManager.js";
 
 dotenv.config();
 
@@ -21,6 +23,10 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ success: false, reason: "Internal server error" });
 });
 
-app.listen(PORT, () => {
+// Tạo HTTP server rồi gắn Socket.IO lên đó
+const httpServer = createServer(app);
+initSocketIO(httpServer);
+
+httpServer.listen(PORT, () => {
   console.log(`[server] listening on http://localhost:${PORT}`);
 });

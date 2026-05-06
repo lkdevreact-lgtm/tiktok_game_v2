@@ -7,6 +7,7 @@ import GameSence from './components/GameSence'
 import HealthBarHUD from './components/ui/HealthBarHUD'
 import GameLoader from './components/ui/GameLoader'
 import TikTokConnectForm from './components/ui/TikTokConnectForm'
+import LiveChatOverlay from './components/ui/LiveChatOverlay'
 
 const App = () => {
   const [tiktokSession, setTiktokSession] = useState(null);
@@ -25,7 +26,7 @@ const App = () => {
     setTiktokSession(session);
   }, []);
 
-  if (tiktokSession) {
+  if (!tiktokSession) {
     return <TikTokConnectForm onConnected={handleConnected} />;
   }
 
@@ -40,6 +41,7 @@ const App = () => {
       </Canvas>
       {showLoader && <GameLoader ready={ready} onFadeComplete={handleLoaderDone} />}
       {!showLoader && <HealthBarHUD />}
+      {!showLoader && <LiveChatOverlay />}
     </div>
   )
 }

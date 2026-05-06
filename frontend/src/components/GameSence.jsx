@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   CameraControls,
+  Environment,
   OrbitControls,
   PerspectiveCamera,
 } from "@react-three/drei";
@@ -105,9 +106,10 @@ const GameSence = ({ onReady }) => {
 
   return (
     <group>
+      <Environment preset="city" />
       <ambientLight intensity={1.2} />
-      <hemisphereLight args={["#bde0ff", "#3a3a3a", 1]} />
-      <directionalLight position={[100, 200, 100]} intensity={1.5} />
+      {/* <hemisphereLight args={["#bde0ff", "#3a3a3a", 1]} />
+      <directionalLight position={[100, 200, 100]} intensity={1.5} /> */}
       <PerspectiveCamera
         ref={cameraRefernceRef}
         position={[0, 1, 10]}
