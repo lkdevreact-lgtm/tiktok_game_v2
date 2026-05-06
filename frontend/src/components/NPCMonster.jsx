@@ -15,7 +15,7 @@ import {
   CHAR_BLOCK_RADIUS,
 } from "../stores/gameStore";
 
-const NPC_MODEL = "models/character/Venom.glb";
+const NPC_MODEL = "models/character/NPC1.glb";
 const NPC_SPAWN_SOUND = "sound/sound_venom.mp3";
 const MOVE_SPEED = 20;
 const ATTACK_RANGE = 5;
