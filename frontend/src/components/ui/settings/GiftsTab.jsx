@@ -66,37 +66,38 @@ const GiftsTab = () => {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-slate-200">Gifts</div>
         <div className="text-xs text-slate-400">
           {loading
             ? "Đang tải..."
             : `${activeCount} / ${gifts.length} gift đang active`}
         </div>
-        <div className="w-full relative">
-          <FaSearch className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tìm theo tên hoặc ID..."
-            className="w-full rounded-lg border border-white/10 bg-black/40 py-2 pr-3 pl-9 text-sm text-white placeholder:text-slate-500 focus:border-blue-500/50 focus:outline-none"
-          />
-        </div>
+      </div>
+      <div className="mb-2 w-full relative">
+        <FaSearch className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-500" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Tìm theo tên hoặc ID..."
+          className="w-full rounded-lg border border-white/10 bg-black/40 py-2 pr-3 pl-9 text-sm text-white placeholder:text-slate-500 focus:border-blue-500/50 focus:outline-none"
+        />
       </div>
 
       {error && (
-        <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+        <div className="mb-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
           {error}
         </div>
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-white/10 bg-black/30">
         {loading ? (
-          <div className="flex h-40 items-center justify-center text-slate-400">
+          <div className="flex h-32 items-center justify-center text-slate-400">
             Đang tải gift...
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex h-40 items-center justify-center text-slate-500">
+          <div className="flex h-32 items-center justify-center text-slate-500">
             Không tìm thấy gift nào.
           </div>
         ) : (

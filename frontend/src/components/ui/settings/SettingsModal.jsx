@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { IoClose } from "react-icons/io5";
-import { FaGift } from "react-icons/fa";
+import { FaGift, FaBolt } from "react-icons/fa";
 import GiftsTab from "./GiftsTab";
+import TriggersTab from "./TriggersTab";
 
 const TABS = [
   { id: "gifts", label: "Gifts", icon: FaGift, Component: GiftsTab },
+  { id: "triggers", label: "Triggers", icon: FaBolt, Component: TriggersTab },
 ];
 
 const SettingsModal = ({ open, onClose }) => {
