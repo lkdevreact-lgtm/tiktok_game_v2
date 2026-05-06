@@ -55,6 +55,7 @@ const FRONT_VIEW_DOT_THRESHOLD = 0.7;
 const USER_HERO_DAMAGE = { Punch: 1, Kick: 1, KickUp: 3, HookPunch: 3 };
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
 const RUN_SOUND_SRC = "/sound/sound_run.MP3";
+const HELLO_SOUND_SRC = "/sound/hello.mp3";
 const USER_HERO_SPAWN = { x: -51.48, y: -2.26, z: 311.29 };
 
 const CharacterController = ({ cameraControlsRef }) => {
@@ -108,6 +109,7 @@ const CharacterController = ({ cameraControlsRef }) => {
   const tempCamPosRef = useRef(new Vector3());
   const punchSoundRef = useRef(null);
   const runSoundRef = useRef(null);
+  const helloSoundRef = useRef(null);
   const wasMovingRef = useRef(false);
 
   const playPunchSound = useCallback(() => {
@@ -118,6 +120,19 @@ const CharacterController = ({ cameraControlsRef }) => {
     try {
       punchSoundRef.current.currentTime = 0;
       punchSoundRef.current.play();
+    } catch {
+      // ignore autoplay errors
+    }
+  }, []);
+
+  const playHelloSound = useCallback(() => {
+    if (!helloSoundRef.current) {
+      helloSoundRef.current = new Audio(HELLO_SOUND_SRC);
+      helloSoundRef.current.volume = 0.8;
+    }
+    try {
+      helloSoundRef.current.currentTime = 0;
+      helloSoundRef.current.play();
     } catch {
       // ignore autoplay errors
     }
@@ -435,6 +450,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       ) {
         helloLock.current = true;
         setAnimation("Hello");
+        playHelloSound();
         clearTimeout(helloTimer.current);
         helloTimer.current = setTimeout(() => {
           helloLock.current = false;
