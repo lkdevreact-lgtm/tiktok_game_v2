@@ -17,11 +17,11 @@ const SettingsModal = ({ open, onClose }) => {
 
   return (
     <div
-      className="pointer-events-auto fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="pointer-events-auto fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="flex h-[80vh] max-h-[640px] w-[92%] max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-linear-to-b from-slate-900/95 to-slate-950/95 shadow-2xl"
+        className="flex h-[80vh] max-h-[640px] w-[92%] max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-black/50 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-white/10 px-5 py-3">
