@@ -1,5 +1,6 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
+import { useGLTF } from "@react-three/drei";
 import {
   CapsuleCollider,
   RigidBody,
@@ -20,6 +21,7 @@ import {
   CHAR_BLOCK_RADIUS,
   NPCHpAtom,
 } from "../stores/gameStore";
+import { getAnimLockMs } from "../lib/animConfig";
 
 const MOVE_SPEED = 30;
 // --- Third-person camera (offset cố định theo HƯỚNG nhân vật, không theo world) ---
@@ -43,6 +45,7 @@ const USER_HERO_ONE_SHOTS = [
   "HookPunch",
   "Jump",
   "Die",
+  "HitReaction",
 ];
 const USER_HERO_DAMAGE = { Punch: 1, Kick: 1, KickUp: 3, HookPunch: 3 };
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
@@ -58,18 +61,40 @@ const CharacterController = ({ cameraControlsRef }) => {
   const keys = useKeyboardControls();
   const { world, rapier } = useRapier();
 
+  // Read animation clip durations from the hero model so action lock timers
+  // automatically match each clip's natural length (× any timeScale override).
+  // Swapping models (Neptune, HeroGirl, …) needs no further timer tuning.
+  const { animations: heroAnimations } = useGLTF(USER_HERO_MODEL);
+  const lockMs = useMemo(() => {
+    const dur = {};
+    for (const clip of heroAnimations) dur[clip.name] = clip.duration;
+    return {
+      Punch: getAnimLockMs(dur.Punch, "Punch"),
+      Kick: getAnimLockMs(dur.Kick, "Kick"),
+      KickUp: getAnimLockMs(dur.KickUp, "KickUp"),
+      HookPunch: getAnimLockMs(dur.HookPunch, "HookPunch"),
+      Jump: getAnimLockMs(dur.Jump, "Jump"),
+      HitReaction: getAnimLockMs(dur.HitReaction, "HitReaction"),
+    };
+  }, [heroAnimations]);
+
   const jumpLock = useRef(false);
   const punchLock = useRef(false);
   const kickLock = useRef(false);
   const kickUpLock = useRef(false);
   const hookPunchLock = useRef(false);
+  const hitReactionLock = useRef(false);
   const jumpTimer = useRef(null);
   const jumpImpulseTimer = useRef(null);
   const jumpImpulseApplied = useRef(false);
+  // Tracks whether the character has started falling after the jump impulse,
+  // so landing detection only fires after a real airborne arc (not at apex).
+  const jumpFallingRef = useRef(false);
   const punchTimer = useRef(null);
   const kickTimer = useRef(null);
   const kickUpTimer = useRef(null);
   const hookPunchTimer = useRef(null);
+  const hitReactionTimer = useRef(null);
   const punchSoundRef = useRef(null);
   const runSoundRef = useRef(null);
   const wasMovingRef = useRef(false);
@@ -184,16 +209,20 @@ const CharacterController = ({ cameraControlsRef }) => {
       isDead.current = false;
       hpRef.current = 100;
       jumpLock.current = false;
+      jumpImpulseApplied.current = false;
+      jumpFallingRef.current = false;
       punchLock.current = false;
       kickLock.current = false;
       kickUpLock.current = false;
       hookPunchLock.current = false;
+      hitReactionLock.current = false;
       clearTimeout(jumpTimer.current);
       clearTimeout(jumpImpulseTimer.current);
       clearTimeout(punchTimer.current);
       clearTimeout(kickTimer.current);
       clearTimeout(kickUpTimer.current);
       clearTimeout(hookPunchTimer.current);
+      clearTimeout(hitReactionTimer.current);
       rigidBodyRef.current.setTranslation(USER_HERO_SPAWN, true);
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
       gameState.targetedNPCId = null;
@@ -219,6 +248,21 @@ const CharacterController = ({ cameraControlsRef }) => {
 
     const velocity = rigidBodyRef.current.linvel();
     const pos = rigidBodyRef.current.translation();
+
+    // --- Jump landing detection ---
+    // Sau khi áp impulse, theo dõi velocity Y:
+    // 1. Khi vel.y rõ ràng âm (đang rơi) → đánh dấu jumpFallingRef = true
+    // 2. Khi đã rơi VÀ vel.y trở về gần 0 (chạm đất) → release lock NGAY
+    //    để animation Run/Idle kick in liền, thay vì đợi timer 1900ms.
+    if (jumpLock.current && jumpImpulseApplied.current) {
+      if (velocity.y < -1) jumpFallingRef.current = true;
+      if (jumpFallingRef.current && Math.abs(velocity.y) < 0.5) {
+        jumpLock.current = false;
+        jumpImpulseApplied.current = false;
+        jumpFallingRef.current = false;
+        clearTimeout(jumpTimer.current);
+      }
+    }
 
     // ============================================================
     // STEERING / HEADING UPDATE
@@ -345,7 +389,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       punchLock.current ||
       kickLock.current ||
       kickUpLock.current ||
-      hookPunchLock.current;
+      hookPunchLock.current ||
+      hitReactionLock.current;
 
     // Helper: tìm closest NPC Monster và tính lunge velocity hướng về phía nó
     const calcLungeVelocity = () => {
@@ -376,7 +421,7 @@ const CharacterController = ({ cameraControlsRef }) => {
     };
 
     // --- Animation priority ---
-    if (justPressedJump && !jumpLock.current) {
+    if (justPressedJump && !jumpLock.current && !hitReactionLock.current) {
       jumpLock.current = true;
       jumpImpulseApplied.current = false;
       setAnimation("Jump");
@@ -394,7 +439,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       clearTimeout(jumpTimer.current);
       jumpTimer.current = setTimeout(() => {
         jumpLock.current = false;
-      }, 1200);
+      }, lockMs.Jump);
     } else if (
       justPressedPunch &&
       !anyAttackLock &&
@@ -402,7 +447,6 @@ const CharacterController = ({ cameraControlsRef }) => {
     ) {
       punchLock.current = true;
       setAnimation("Punch");
-      playPunchSound();
       gameState.userhero.isAttacking = true;
       gameState.userhero.attackType = "Punch";
       gameState.userhero.hitDealt = false;
@@ -414,7 +458,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         punchLock.current = false;
         gameState.userhero.isAttacking = false;
         gameState.userhero.attackType = null;
-      }, 800);
+      }, lockMs.Punch);
     } else if (
       justPressedKick &&
       !anyAttackLock &&
@@ -422,7 +466,6 @@ const CharacterController = ({ cameraControlsRef }) => {
     ) {
       kickLock.current = true;
       setAnimation("Kick");
-      playPunchSound();
       gameState.userhero.isAttacking = true;
       gameState.userhero.attackType = "Kick";
       gameState.userhero.hitDealt = false;
@@ -433,7 +476,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         kickLock.current = false;
         gameState.userhero.isAttacking = false;
         gameState.userhero.attackType = null;
-      }, 1700);
+      }, lockMs.Kick);
     } else if (
       justPressedKickUp &&
       !anyAttackLock &&
@@ -441,7 +484,6 @@ const CharacterController = ({ cameraControlsRef }) => {
     ) {
       kickUpLock.current = true;
       setAnimation("KickUp");
-      playPunchSound();
       gameState.userhero.isAttacking = true;
       gameState.userhero.attackType = "KickUp";
       gameState.userhero.hitDealt = false;
@@ -452,7 +494,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         kickUpLock.current = false;
         gameState.userhero.isAttacking = false;
         gameState.userhero.attackType = null;
-      }, 1400);
+      }, lockMs.KickUp);
     } else if (
       justPressedHookPunch &&
       !anyAttackLock &&
@@ -460,7 +502,6 @@ const CharacterController = ({ cameraControlsRef }) => {
     ) {
       hookPunchLock.current = true;
       setAnimation("HookPunch");
-      playPunchSound();
       gameState.userhero.isAttacking = true;
       gameState.userhero.attackType = "HookPunch";
       gameState.userhero.hitDealt = false;
@@ -471,7 +512,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         hookPunchLock.current = false;
         gameState.userhero.isAttacking = false;
         gameState.userhero.attackType = null;
-      }, 1400);
+      }, lockMs.HookPunch);
     } else if (!jumpLock.current && !anyAttackLock) {
       if (!isMoving) setAnimation("Idle");
       else if (moveDir < 0) setAnimation("RunBackward");
@@ -502,6 +543,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       }
       if (closestEntry) {
         dealDamageToNPC(closestEntry, dmg);
+        playPunchSound();
         gameState.userhero.hitDealt = true;
         gameState.targetedNPCId = closestEntry.id;
         // Floating damage popup
@@ -529,6 +571,17 @@ const CharacterController = ({ cameraControlsRef }) => {
       if (Math.sqrt(dx * dx + dz * dz) < ATTACK_RANGE) {
         entry.hitDealt = true;
         takeDamage(0.5);
+        // Stagger animation — chỉ trigger khi không đang attack/jump/đã stagger
+        if (!hitReactionLock.current && !jumpLock.current && !punchLock.current
+          && !kickLock.current && !kickUpLock.current && !hookPunchLock.current
+          && !isDead.current) {
+          hitReactionLock.current = true;
+          setAnimation("HitReaction");
+          clearTimeout(hitReactionTimer.current);
+          hitReactionTimer.current = setTimeout(() => {
+            hitReactionLock.current = false;
+          }, lockMs.HitReaction);
+        }
       }
     }
 
@@ -646,8 +699,8 @@ const CharacterController = ({ cameraControlsRef }) => {
         friction={1}
       >
         <CapsuleCollider
-          args={[1.3, 2.5]}
-          position={[0, 4.111, 0]}
+          args={[6.3, 3.9]}
+          position={[0, 10.2, 0]}
           collisionGroups={interactionGroups([0], [1])}
         />
 

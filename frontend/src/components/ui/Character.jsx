@@ -3,19 +3,13 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import { AnimationMixer, FrontSide, LoopOnce } from "three";
 import { SkeletonUtils } from "three-stdlib";
+import { ANIM_TIME_SCALE } from "../../lib/animConfig";
 
 const DEFAULT_ONE_SHOTS = new Set(["Punch", "Kick", "Jump"]);
 const COMBAT_ANIMS = new Set(["Punch", "Kick", "KickUp", "HookPunch"]);
 // Combat transitions blend faster for snappy feel; others blend smoothly
 const COMBAT_BLEND = 0.15;
 const NORMAL_BLEND = 0.25;
-// Speed multipliers for more impactful combat animations
-const ANIM_TIME_SCALE = {
-  Punch: 1.3,
-  Kick: 1.2,
-  KickUp: 1.15,
-  HookPunch: 1.25,
-};
 
 const Character = ({
   modelPath,
