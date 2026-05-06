@@ -2,9 +2,9 @@ import { atom } from "jotai";
 
 // Health atoms - reactive for HUD
 export const userHeroHpAtom = atom(100);
-export const venomHpAtom = atom(100);
+export const NPCHpAtom = atom(100);
 export const gameOverAtom = atom(false);
-export const winnerAtom = atom(null); // "Spiderman" | "Venom" | null
+export const winnerAtom = atom(null); // "User hero" | "NPC Monster" | null
 
 // Play Again limit system
 export const MAX_PLAYS = 5;
@@ -38,7 +38,7 @@ export const gameState = {
     hitDealt: false, // flag to prevent multi-frame damage
   },
   // Each entry: { id, position: {x,y,z}, isAttacking, attackType, hitDealt, hp }
-  venoms: [],
-  // ID của Venom đang bị Spiderman nhắm (hiện mũi tên trên đầu, Spiderman quay mặt về)
-  targetedVenomId: null,
+  NPC: [],
+  // ID của NPC đang bị User hero nhắm (hiện mũi tên trên đầu, User hero quay mặt về)
+  targetedNPCId: null,
 };

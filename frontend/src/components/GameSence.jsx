@@ -43,7 +43,7 @@ const GameSence = ({ onReady }) => {
     onReady?.();
   }, []);
 
-  const spawnVenom = useCallback(() => {
+  const spawnNPC = useCallback(() => {
     setNPC((list) => {
       const id = npcIdRef.current++;
       return [...list, { id, spawnPosition: randomSpawnNearUserHero() }];
@@ -54,7 +54,7 @@ const GameSence = ({ onReady }) => {
     setNPC((list) => list.filter((n) => n.id !== id));
   }, []);
 
-  // Handle full restart — clear all venoms and reset spawn timer
+  // Handle full restart — clear all NPC Monsters and reset spawn timer
   useEffect(() => {
     if (fullRestart) {
       queueMicrotask(() => {
@@ -66,13 +66,13 @@ const GameSence = ({ onReady }) => {
   }, [fullRestart, setFullRestart]);
 
   useEffect(() => {
-    const firstSpawn = setTimeout(spawnVenom, 500);
-    const interval = setInterval(spawnVenom, NPC_SPAWN_INTERVAL);
+    const firstSpawn = setTimeout(spawnNPC, 500);
+    const interval = setInterval(spawnNPC, NPC_SPAWN_INTERVAL);
     return () => {
       clearTimeout(firstSpawn);
       clearInterval(interval);
     };
-  }, [spawnVenom]);
+  }, [spawnNPC]);
 
   const adjustCamera = () => {
     const distFactor =

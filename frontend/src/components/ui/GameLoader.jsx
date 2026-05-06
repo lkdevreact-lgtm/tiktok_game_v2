@@ -81,7 +81,7 @@ const GameLoader = ({ ready, onFadeComplete }) => {
         ))}
       </div>
 
-      {/* Spider web decoration lines */}
+      {/* User hero web decoration lines */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 w-px h-full bg-gradient-to-b from-white/10 via-transparent to-white/10" />
         <div className="absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-white/10 via-transparent to-white/10" />
@@ -119,7 +119,7 @@ const GameLoader = ({ ready, onFadeComplete }) => {
             fontFamily: "'Lato', sans-serif",
           }}
         >
-          VS VENOM
+          VS Monster
         </p>
       </div>
 

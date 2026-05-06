@@ -1,13 +1,13 @@
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
 import {
   userHeroHpAtom,
-  venomHpAtom,
   gameOverAtom,
   winnerAtom,
   gameState,
   MAX_PLAYS,
   playCountAtom,
   fullRestartAtom,
+  NPCHpAtom,
 } from "../../stores/gameStore";
 import { AiFillSetting } from "react-icons/ai";
 
@@ -40,11 +40,11 @@ const Bar = ({ hp, name, color, side }) => {
 };
 
 const HealthBarHUD = () => {
-  const spidermanHp = useAtomValue(userHeroHpAtom);
+  const userHeroHp = useAtomValue(userHeroHpAtom);
   const gameOver = useAtomValue(gameOverAtom);
   const winner = useAtomValue(winnerAtom);
-  const setSpidermanHp = useSetAtom(userHeroHpAtom);
-  const setVenomHp = useSetAtom(venomHpAtom);
+  const setUserHeroHp = useSetAtom(userHeroHpAtom);
+  const setNPCHp = useSetAtom(NPCHpAtom);
   const setGameOver = useSetAtom(gameOverAtom);
   const setWinner = useSetAtom(winnerAtom);
   const [playCount, setPlayCount] = useAtom(playCountAtom);
@@ -58,30 +58,30 @@ const HealthBarHUD = () => {
     // Increment play count
     setPlayCount((prev) => prev + 1);
     // Reset atoms
-    setSpidermanHp(100);
-    setVenomHp(100);
+    setUserHeroHp(100);
+    setNPCHp(100);
     setGameOver(false);
     setWinner(null);
-    // Reset mutable game state (keep venoms alive — just reset their attack state)
-    gameState.spiderman.isAttacking = false;
-    gameState.spiderman.attackType = null;
-    gameState.spiderman.hitDealt = false;
-    // NOTE: Don't clear venoms — keep them across rounds
+    // Reset mutable game state (keep NPC monsters alive — just reset their attack state)
+    gameState.userhero.isAttacking = false;
+    gameState.userhero.attackType = null;
+    gameState.userhero.hitDealt = false;
+    // NOTE: Don't clear NPC monsters — keep them across rounds
   };
 
   const handleFullRestart = () => {
     // Reset play count
     setPlayCount(0);
     // Reset atoms
-    setSpidermanHp(100);
-    setVenomHp(100);
+    setUserHeroHp(100);
+    setNPCHp(100);
     setGameOver(false);
     setWinner(null);
-    // Reset mutable game state + clear all venoms
-    gameState.spiderman.isAttacking = false;
-    gameState.spiderman.attackType = null;
-    gameState.spiderman.hitDealt = false;
-    gameState.venoms.length = 0;
+    // Reset mutable game state + clear all NPC monsters
+    gameState.userhero.isAttacking = false;
+    gameState.userhero.attackType = null;
+    gameState.userhero.hitDealt = false;
+    gameState.NPC.length = 0;
     // Signal full restart to GameSence
     setFullRestart(true);
   };
@@ -136,7 +136,7 @@ const HealthBarHUD = () => {
 
       {/* Health bar at bottom */}
       <div className="absolute bottom-6 left-0 right-0 flex px-8">
-        <Bar hp={spidermanHp} name="SPIDERMAN" color="#3b82f6" side="left" />
+        <Bar hp={userHeroHp} name="User Hero" color="#3b82f6" side="left" />
       </div>
 
       {/* Game over overlay */}

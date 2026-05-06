@@ -26,7 +26,7 @@ const FADE_DURATION = 2000; // thời gian fade opacity
 
 const NPC_ONE_SHOTS = ["Punch", "Die"];
 
-// Stuck detection: nếu Venom định di chuyển nhưng vận tốc gần 0 → đang đâm tường
+// Stuck detection: nếu NPC monster định di chuyển nhưng vận tốc gần 0 → đang đâm tường
 const STUCK_SPEED_THRESHOLD = 0.5;
 const STUCK_FRAME_THRESHOLD = 20; // ~0.33s @ 60fps
 const SIDESTEP_FRAMES = 45; // né 90° trong ~0.75s rồi thử lại
@@ -41,7 +41,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
   const isDead = useRef(false);
   const isFalling = useRef(true);
   const fallStarted = useRef(false);
-  const fallStartTime = useRef(performance.now());
+  const fallStartTime = useRef(0);
   const landedFrames = useRef(0);
   const gameOver = useAtomValue(gameOverAtom);
   const prevGameOverRef = useRef(false);
@@ -53,7 +53,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
   const sidestepDirRef = useRef(0); // 0 = off, +1/-1 = hướng né
   const sidestepFramesRef = useRef(0);
 
-  // Play spawn sound khi Venom xuất hiện
+  // Play spawn sound khi NPC monster xuất hiện
   useEffect(() => {
     const audio = new Audio(NPC_SPAWN_SOUND);
     audio.volume = 0.5;
@@ -69,12 +69,13 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
       hitDealt: false,
       hp: 15,
     };
-    gameState.venoms.push(entry);
+    gameState.NPC.push(entry);
     entryRef.current = entry;
+    fallStartTime.current = performance.now();
     return () => {
-      const idx = gameState.venoms.indexOf(entry);
-      if (idx >= 0) gameState.venoms.splice(idx, 1);
-      if (gameState.targetedVenomId === id) gameState.targetedVenomId = null;
+      const idx = gameState.NPC.indexOf(entry);
+      if (idx >= 0) gameState.NPC.splice(idx, 1);
+      if (gameState.targetedNPCId === id) gameState.targetedNPCId = null;
       clearTimeout(punchTimer.current);
     };
   }, [id, spawnPosition.x, spawnPosition.y, spawnPosition.z]);
@@ -84,7 +85,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
 
     // Sync target flag mỗi frame
     const shouldBeTargeted =
-      gameState.targetedVenomId === id && !isDead.current;
+      gameState.targetedNPCId === id && !isDead.current;
     if (shouldBeTargeted !== isTargeted) {
       setIsTargeted(shouldBeTargeted);
     }
@@ -94,10 +95,10 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
       const entry = entryRef.current;
       isDead.current = false;
       punchLock.current = false;
-      // Không reset isFalling — Venom đã trên mặt đất thì tiếp tục tấn công
-      // Chỉ reset falling nếu Venom đang thực sự rơi
+      // Không reset isFalling — NPC monster đã trên mặt đất thì tiếp tục tấn công
+      // Chỉ reset falling nếu NPC monster đang thực sự rơi
       if (!isFalling.current) {
-        // Venom đã hạ cánh → sẵn sàng tấn công ngay
+        // NPC monster đã hạ cánh → sẵn sàng tấn công ngay
         fallStarted.current = false;
         landedFrames.current = 0;
       }
@@ -139,7 +140,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
       entry.attackType = null;
       punchLock.current = false;
       clearTimeout(punchTimer.current);
-      if (gameState.targetedVenomId === id) gameState.targetedVenomId = null;
+      if (gameState.targetedNPCId === id) gameState.targetedNPCId = null;
       return;
     }
     if (isDead.current) {
@@ -157,16 +158,16 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
     }
 
     const velocity = rigidBodyRef.current.linvel();
-    const venomPos = rigidBodyRef.current.translation();
-    const spiderPos = gameState.spiderman.position;
+    const NPCPos = rigidBodyRef.current.translation();
+    const userheroPos = gameState.userhero.position;
 
-    const dx = spiderPos.x - venomPos.x;
-    const dz = spiderPos.z - venomPos.z;
+    const dx = userheroPos.x - NPCPos.x;
+    const dz = userheroPos.z - NPCPos.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
 
-    entry.position.x = venomPos.x;
-    entry.position.y = venomPos.y;
-    entry.position.z = venomPos.z;
+    entry.position.x = NPCPos.x;
+    entry.position.y = NPCPos.y;
+    entry.position.z = NPCPos.z;
 
     if (characterRef.current && dist > 0.1) {
       characterRef.current.rotation.y = Math.atan2(dx, dz);
@@ -240,21 +241,21 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
         }
       }
 
-      // Anti-overlap: chặn với Spiderman + các venom khác
+      // Anti-overlap: chặn với User hero + các npc monster khác
       [nx, nz] = blockIfTooClose(
-        venomPos.x,
-        venomPos.z,
+        NPCPos.x,
+        NPCPos.z,
         nx,
         nz,
-        spiderPos.x,
-        spiderPos.z,
+        userheroPos.x,
+        userheroPos.z,
         CHAR_BLOCK_RADIUS,
       );
-      for (const other of gameState.venoms) {
+      for (const other of gameState.NPC) {
         if (other === entry || other.hp <= 0) continue;
         [nx, nz] = blockIfTooClose(
-          venomPos.x,
-          venomPos.z,
+          NPCPos.x,
+          NPCPos.z,
           nx,
           nz,
           other.position.x,

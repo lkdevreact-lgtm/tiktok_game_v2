@@ -13,12 +13,12 @@ import { Vector3 } from "three";
 import { useSetAtom, useAtomValue } from "jotai";
 import {
   userHeroHpAtom,
-  venomHpAtom,
   gameOverAtom,
   winnerAtom,
   gameState,
   blockIfTooClose,
   CHAR_BLOCK_RADIUS,
+  NPCHpAtom,
 } from "../stores/gameStore";
 
 const MOVE_SPEED = 30;
@@ -146,7 +146,7 @@ const CharacterController = ({ cameraControlsRef }) => {
   }, []);
 
   const userHeroHP = useSetAtom(userHeroHpAtom);
-  const setVenomHp = useSetAtom(venomHpAtom);
+  const setNPCHp = useSetAtom(NPCHpAtom);
   const setGameOver = useSetAtom(gameOverAtom);
   const setWinner = useSetAtom(winnerAtom);
   const gameOver = useAtomValue(gameOverAtom);
@@ -160,20 +160,20 @@ const CharacterController = ({ cameraControlsRef }) => {
       if (hpRef.current <= 0) {
         isDead.current = true;
         setGameOver(true);
-        setWinner("Venom");
+        setWinner("NPC Monster");
       }
     },
     [userHeroHP, setGameOver, setWinner],
   );
 
-  const dealDamageToVenom = useCallback(
+  const dealDamageToNPC = useCallback(
     (entry, amount) => {
       const currentHp = entry.hp ?? 100;
       const newHp = Math.max(0, currentHp - amount);
       entry.hp = newHp;
-      setVenomHp(newHp);
+      setNPCHp(newHp);
     },
-    [setVenomHp],
+    [setNPCHp],
   );
 
   useFrame((_, delta) => {
@@ -196,7 +196,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       clearTimeout(hookPunchTimer.current);
       rigidBodyRef.current.setTranslation(USER_HERO_SPAWN, true);
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
-      gameState.targetedVenomId = null;
+      gameState.targetedNPCId = null;
       // Reset heading + camera để không bị giật khi respawn
       headingRef.current = 0;
       targetHeadingRef.current = 0;
@@ -287,9 +287,9 @@ const CharacterController = ({ cameraControlsRef }) => {
       // Đang rơi xuống → cho phép rơi nhanh
       finalY = Math.max(finalY, -102);
     }
-    // Anti-overlap: chặn component velocity hướng về venom đang ở quá gần
+    // Anti-overlap: chặn component velocity hướng về NPC Monster đang ở quá gần
     const curPos = rigidBodyRef.current.translation();
-    for (const entry of gameState.venoms) {
+    for (const entry of gameState.NPC) {
       if (entry.hp <= 0) continue;
       [moveX, moveZ] = blockIfTooClose(
         curPos.x,
@@ -308,16 +308,16 @@ const CharacterController = ({ cameraControlsRef }) => {
     gameState.userhero.position.y = pos.y;
     gameState.userhero.position.z = pos.z;
 
-    // Khi đứng yên (không di chuyển và không quay tay) và đang nhắm Venom
-    // → set targetHeading về phía Venom; heading sẽ tự lerp mượt sang đó
+    // Khi đứng yên (không di chuyển và không quay tay) và đang nhắm NPC Monster
+    // → set targetHeading về phía NPC Monster; heading sẽ tự lerp mượt sang đó
     // ở frame sau, camera follow theo nên không giật.
     const isTurningManually = keys.current.left || keys.current.right;
-    if (gameState.targetedVenomId != null) {
-      const target = gameState.venoms.find(
-        (v) => v.id === gameState.targetedVenomId && v.hp > 0,
+    if (gameState.targetedNPCId != null) {
+      const target = gameState.NPC.find(
+        (v) => v.id === gameState.targetedNPCId && v.hp > 0,
       );
       if (!target) {
-        gameState.targetedVenomId = null;
+        gameState.targetedNPCId = null;
       } else if (!isMoving && !isTurningManually) {
         const dxt = target.position.x - pos.x;
         const dzt = target.position.z - pos.z;
@@ -347,11 +347,11 @@ const CharacterController = ({ cameraControlsRef }) => {
       kickUpLock.current ||
       hookPunchLock.current;
 
-    // Helper: tìm closest venom và tính lunge velocity hướng về phía nó
+    // Helper: tìm closest NPC Monster và tính lunge velocity hướng về phía nó
     const calcLungeVelocity = () => {
       let closestEntry = null;
       let closestDist = ATTACK_RANGE * 2;
-      for (const entry of gameState.venoms) {
+      for (const entry of gameState.NPC) {
         if (entry.hp <= 0) continue;
         const dx = pos.x - entry.position.x;
         const dz = pos.z - entry.position.z;
@@ -485,12 +485,12 @@ const CharacterController = ({ cameraControlsRef }) => {
       rigidBodyRef.current.setLinvel({ x: curVel.x * 0.9, y: curVel.y, z: curVel.z * 0.9 }, true);
     }
 
-    // --- User hero hits closest Venom in range ---
+    // --- User hero hits closest NPC Monster in range ---
     if (gameState.userhero.isAttacking && !gameState.userhero.hitDealt) {
       const dmg = USER_HERO_DAMAGE[gameState.userhero.attackType] ?? 1;
       let closestEntry = null;
       let closestDist = ATTACK_RANGE;
-      for (const entry of gameState.venoms) {
+      for (const entry of gameState.NPC) {
         if (entry.hp <= 0) continue;
         const dx = pos.x - entry.position.x;
         const dz = pos.z - entry.position.z;
@@ -501,9 +501,9 @@ const CharacterController = ({ cameraControlsRef }) => {
         }
       }
       if (closestEntry) {
-        dealDamageToVenom(closestEntry, dmg);
+        dealDamageToNPC(closestEntry, dmg);
         gameState.userhero.hitDealt = true;
-        gameState.targetedVenomId = closestEntry.id;
+        gameState.targetedNPCId = closestEntry.id;
         // Floating damage popup
         const popupId = damageIdRef.current++;
         setDamagePopups((prev) => [
@@ -521,8 +521,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       }
     }
 
-    // --- Any Venom hits User hero ---
-    for (const entry of gameState.venoms) {
+    // --- Any NPC Monster hits User hero ---
+    for (const entry of gameState.NPC) {
       if (!entry.isAttacking || entry.hitDealt) continue;
       const dx = pos.x - entry.position.x;
       const dz = pos.z - entry.position.z;
