@@ -117,14 +117,14 @@ const GameSence = ({ onReady }) => {
       <CameraControls ref={controlsRef} />
       <Physics>
         <CharacterController cameraControlsRef={controlsRef} />
-        {npc.map((n) => (
+        {/* {npc.map((n) => (
           <NPCMonster
             key={n.id}
             id={n.id}
             spawnPosition={n.spawnPosition}
             onDespawn={handleDespawn}
           />
-        ))} 
+        ))}  */}
         <RigidBody
           type="fixed"
           colliders="trimesh"
