@@ -110,7 +110,7 @@ const GameLoader = ({ ready, onFadeComplete }) => {
             filter: "drop-shadow(0 0 30px rgba(239, 68, 68, 0.4))",
           }}
         >
-          WIBU COMBAT
+          ANIME COMBAT
         </h1>
         <p
           className="text-center text-lg tracking-[0.5em] mt-1 font-light"

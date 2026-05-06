@@ -67,11 +67,11 @@ const GiftsTab = () => {
   return (
     <div className="flex h-full flex-col">
       <div className="mb-3 flex items-center justify-between gap-3">
-        {/* <div className="text-xs text-slate-400">
+        <div className="text-xs text-slate-400">
           {loading
             ? "Đang tải..."
             : `${activeCount} / ${gifts.length} gift đang active`}
-        </div> */}
+        </div>
         <div className="w-full relative">
           <FaSearch className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-500" />
           <input
