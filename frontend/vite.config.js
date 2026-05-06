@@ -8,11 +8,20 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          three: ['three'],
-          r3f: ['@react-three/fiber', '@react-three/drei', '@react-three/postprocessing'],
-          rapier: ['@react-three/rapier'],
-          react: ['react', 'react-dom'],
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('@react-three/rapier')) return 'rapier';
+          if (
+            id.includes('@react-three/fiber') ||
+            id.includes('@react-three/drei') ||
+            id.includes('@react-three/postprocessing')
+          ) return 'r3f';
+          if (id.includes('node_modules/three/')) return 'three';
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/') ||
+            id.includes('node_modules/scheduler/')
+          ) return 'react';
         },
       },
     },
