@@ -115,7 +115,7 @@ const GameSence = ({ onReady }) => {
         far={5000}
       />
       <CameraControls ref={controlsRef} />
-      <Physics>
+      <Physics gravity={[0,-55,0]}>
         <CharacterController cameraControlsRef={controlsRef} />
         {/* {npc.map((n) => (
           <NPCMonster
