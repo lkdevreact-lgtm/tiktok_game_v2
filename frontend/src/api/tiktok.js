@@ -1,5 +1,4 @@
-const RAW_BACKEND = import.meta.env.VITE_BACKEND_URL;
-const BACKEND_URL = (RAW_BACKEND && RAW_BACKEND.trim()) || "http://localhost:8888";
+import { BACKEND_URL } from "../utils/const";
 
 async function postJson(path, body) {
   let res;
