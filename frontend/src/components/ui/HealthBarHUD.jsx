@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
 import {
   userHeroHpAtom,
@@ -10,6 +11,7 @@ import {
   NPCHpAtom,
 } from "../../stores/gameStore";
 import { AiFillSetting } from "react-icons/ai";
+import SettingsModal from "./settings/SettingsModal";
 
 
 const Bar = ({ hp, name, color, side }) => {
@@ -49,6 +51,7 @@ const HealthBarHUD = () => {
   const setWinner = useSetAtom(winnerAtom);
   const [playCount, setPlayCount] = useAtom(playCountAtom);
   const setFullRestart = useSetAtom(fullRestartAtom);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const remainingPlays = MAX_PLAYS - playCount;
   const canPlayAgain = remainingPlays > 0;
@@ -127,12 +130,25 @@ const HealthBarHUD = () => {
         </div>
       </div>
 
-      {/* Round counter (always visible) */}
-      <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/10">
-        <span className="text-white/80 text-xs font-semibold">
-          Round {playCount + 1} / {MAX_PLAYS}
-        </span>
+      {/* Round counter + Settings button (always visible) */}
+      <div className="absolute top-4 right-4 flex items-center gap-2 pointer-events-auto">
+        <div className="bg-black/50 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/10">
+          <span className="text-white/80 text-xs font-semibold">
+            Round {playCount + 1} / {MAX_PLAYS}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="rounded-lg border border-white/10 bg-black/50 p-1.5 text-white/80 backdrop-blur-sm transition hover:bg-white/10 hover:text-white"
+          aria-label="Open settings"
+          title="Settings"
+        >
+          <AiFillSetting size={18} />
+        </button>
       </div>
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* Health bar at bottom */}
       <div className="absolute bottom-6 left-0 right-0 flex px-8">
