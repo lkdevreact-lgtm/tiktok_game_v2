@@ -16,7 +16,7 @@ import {
 } from "../stores/gameStore";
 
 const NPC_MODEL = "models/character/NPC1.glb";
-const NPC_SPAWN_SOUND = "sound/sound_venom.mp3";
+const NPC_SPAWN_SOUND = "sound/vine_boom.mp3";
 const MOVE_SPEED = 20;
 const ATTACK_RANGE = 5;
 const PUNCH_DURATION = 900;

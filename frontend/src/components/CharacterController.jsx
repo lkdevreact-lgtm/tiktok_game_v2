@@ -46,7 +46,12 @@ const USER_HERO_ONE_SHOTS = [
   "Jump",
   "Die",
   "HitReaction",
+  "Hello",
 ];
+
+// Camera-in-front detection: dot product of (cam→char dir) and char forward.
+// > 0.7 ≈ camera is within ~45° cone in front of the character.
+const FRONT_VIEW_DOT_THRESHOLD = 0.7;
 const USER_HERO_DAMAGE = { Punch: 1, Kick: 1, KickUp: 3, HookPunch: 3 };
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
 const RUN_SOUND_SRC = "/sound/sound_run.MP3";
@@ -75,6 +80,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       HookPunch: getAnimLockMs(dur.HookPunch, "HookPunch"),
       Jump: getAnimLockMs(dur.Jump, "Jump"),
       HitReaction: getAnimLockMs(dur.HitReaction, "HitReaction"),
+      Hello: getAnimLockMs(dur.Hello, "Hello"),
     };
   }, [heroAnimations]);
 
@@ -84,6 +90,7 @@ const CharacterController = ({ cameraControlsRef }) => {
   const kickUpLock = useRef(false);
   const hookPunchLock = useRef(false);
   const hitReactionLock = useRef(false);
+  const helloLock = useRef(false);
   const jumpTimer = useRef(null);
   const jumpImpulseTimer = useRef(null);
   const jumpImpulseApplied = useRef(false);
@@ -95,6 +102,10 @@ const CharacterController = ({ cameraControlsRef }) => {
   const kickUpTimer = useRef(null);
   const hookPunchTimer = useRef(null);
   const hitReactionTimer = useRef(null);
+  const helloTimer = useRef(null);
+  // Front-view detection state (for Hello animation trigger)
+  const wasViewingFrontRef = useRef(false);
+  const tempCamPosRef = useRef(new Vector3());
   const punchSoundRef = useRef(null);
   const runSoundRef = useRef(null);
   const wasMovingRef = useRef(false);
@@ -216,6 +227,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       kickUpLock.current = false;
       hookPunchLock.current = false;
       hitReactionLock.current = false;
+      helloLock.current = false;
+      wasViewingFrontRef.current = false;
       clearTimeout(jumpTimer.current);
       clearTimeout(jumpImpulseTimer.current);
       clearTimeout(punchTimer.current);
@@ -223,6 +236,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       clearTimeout(kickUpTimer.current);
       clearTimeout(hookPunchTimer.current);
       clearTimeout(hitReactionTimer.current);
+      clearTimeout(helloTimer.current);
       rigidBodyRef.current.setTranslation(USER_HERO_SPAWN, true);
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
       gameState.targetedNPCId = null;
@@ -392,6 +406,59 @@ const CharacterController = ({ cameraControlsRef }) => {
       hookPunchLock.current ||
       hitReactionLock.current;
 
+    // --- Hello animation: detect when user orbits camera to face character ---
+    // Chỉ check khi đang drag (user chủ động xoay camera). Lúc thả ra, camera
+    // tự lerp về sau lưng — không tính. Detect bằng dot product giữa hướng
+    // (camera→character) và forward của character. Trigger 1 lần mỗi lần
+    // user "đi vào" front cone (transition false→true), không spam liên tục.
+    if (cameraControlsRef?.current && isDraggingRef.current && !isDead.current) {
+      cameraControlsRef.current.getPosition(tempCamPosRef.current);
+      const camDx = tempCamPosRef.current.x - pos.x;
+      const camDz = tempCamPosRef.current.z - pos.z;
+      const camDistXZ = Math.sqrt(camDx * camDx + camDz * camDz);
+      let viewingFront = false;
+      if (camDistXZ > 0.1) {
+        const dxn = camDx / camDistXZ;
+        const dzn = camDz / camDistXZ;
+        // Forward XZ của character: (sin(heading), cos(heading))
+        const fx = Math.sin(headingRef.current);
+        const fz = Math.cos(headingRef.current);
+        const dot = dxn * fx + dzn * fz;
+        viewingFront = dot > FRONT_VIEW_DOT_THRESHOLD;
+      }
+      if (
+        viewingFront &&
+        !wasViewingFrontRef.current &&
+        !helloLock.current &&
+        !anyAttackLock &&
+        !jumpLock.current
+      ) {
+        helloLock.current = true;
+        setAnimation("Hello");
+        clearTimeout(helloTimer.current);
+        helloTimer.current = setTimeout(() => {
+          helloLock.current = false;
+        }, lockMs.Hello);
+      }
+      wasViewingFrontRef.current = viewingFront;
+    } else {
+      // Khi không drag → reset để lần drag sau, transition vẫn detect được.
+      wasViewingFrontRef.current = false;
+    }
+
+    // Bấm phím tấn công/nhảy → cancel Hello để animation ngắt sạch.
+    if (
+      helloLock.current &&
+      (justPressedJump ||
+        justPressedPunch ||
+        justPressedKick ||
+        justPressedKickUp ||
+        justPressedHookPunch)
+    ) {
+      helloLock.current = false;
+      clearTimeout(helloTimer.current);
+    }
+
     // Helper: tìm closest NPC Monster và tính lunge velocity hướng về phía nó
     const calcLungeVelocity = () => {
       let closestEntry = null;
@@ -513,7 +580,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         gameState.userhero.isAttacking = false;
         gameState.userhero.attackType = null;
       }, lockMs.HookPunch);
-    } else if (!jumpLock.current && !anyAttackLock) {
+    } else if (!jumpLock.current && !anyAttackLock && !helloLock.current) {
       if (!isMoving) setAnimation("Idle");
       else if (moveDir < 0) setAnimation("RunBackward");
       else setAnimation("Run");
