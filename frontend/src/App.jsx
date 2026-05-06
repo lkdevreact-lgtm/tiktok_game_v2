@@ -2,6 +2,8 @@ import { Canvas } from '@react-three/fiber'
 import { Stats } from '@react-three/drei'
 import React, { Suspense, useState, useCallback } from 'react'
 
+import './lib/preloadAssets'
+
 const SHOW_STATS = import.meta.env.DEV;
 import GameSence from './components/GameSence'
 import HealthBarHUD from './components/ui/HealthBarHUD'
@@ -26,7 +28,7 @@ const App = () => {
     setTiktokSession(session);
   }, []);
 
-  if (!tiktokSession) {
+  if (tiktokSession) {
     return <TikTokConnectForm onConnected={handleConnected} />;
   }
 

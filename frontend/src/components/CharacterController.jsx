@@ -34,7 +34,7 @@ const TURN_SPEED = 3.0;            // Tốc độ quay khi nhấn A/D (radian/gi
 const HEADING_LERP = 0.18;         // Hệ số lerp giữa heading hiện tại và target — nhỏ = quay mượt hơn
 const JUMP_FORCE = 25;
 const ATTACK_LUNGE_SPEED = 6;
-const USER_HERO_MODEL = "models/character/test.glb";
+const USER_HERO_MODEL = "models/character/Neptune.glb";
 const ATTACK_RANGE = 5;
 const USER_HERO_ONE_SHOTS = [
   "Punch",
@@ -433,7 +433,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         kickLock.current = false;
         gameState.userhero.isAttacking = false;
         gameState.userhero.attackType = null;
-      }, 1000);
+      }, 1700);
     } else if (
       justPressedKickUp &&
       !anyAttackLock &&
@@ -647,7 +647,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       >
         <CapsuleCollider
           args={[1.3, 2.5]}
-          position={[0, 3.311, 0]}
+          position={[0, 4.111, 0]}
           collisionGroups={interactionGroups([0], [1])}
         />
 

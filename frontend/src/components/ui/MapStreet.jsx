@@ -32,6 +32,4 @@ const MapStreet = () => {
   );
 };
 
-useGLTF.preload("models/map2.glb");
-
 export default MapStreet;
