@@ -9,20 +9,20 @@ import MapStreet from "./ui/MapStreet";
 import { useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
 import CharacterController from "./CharacterController";
-import VenomController from "./VenomController";
 import { gameState, fullRestartAtom } from "../stores/gameStore";
 import { useAtom } from "jotai";
+import NPCMonster from "./NPCMonster";
 
-const VENOM_SPAWN_INTERVAL = 15000;
-const VENOM_SPAWN_MIN_DIST = 30;
-const VENOM_SPAWN_MAX_DIST = 60;
+const NPC_SPAWN_INTERVAL = 15000;
+const NPC_SPAWN_MIN_DIST = 30;
+const NPC_SPAWN_MAX_DIST = 60;
 
-const randomSpawnNearSpiderman = () => {
-  const sp = gameState.spiderman.position;
+const randomSpawnNearUserHero = () => {
+  const sp = gameState.userhero.position;
   const angle = Math.random() * Math.PI * 2;
   const dist =
-    VENOM_SPAWN_MIN_DIST +
-    Math.random() * (VENOM_SPAWN_MAX_DIST - VENOM_SPAWN_MIN_DIST);
+    NPC_SPAWN_MIN_DIST +
+    Math.random() * (NPC_SPAWN_MAX_DIST - NPC_SPAWN_MIN_DIST);
   return {
     x: sp.x + Math.cos(angle) * dist,
     y: 20,
@@ -34,8 +34,8 @@ const GameSence = ({ onReady }) => {
   const controlsRef = useRef();
   const viewport = useThree((state) => state.viewport);
   const cameraRefernceRef = useRef();
-  const venomIdRef = useRef(0);
-  const [venoms, setVenoms] = useState([]);
+  const npcIdRef = useRef(0);
+  const [npc, setNPC] = useState([]);
   const [fullRestart, setFullRestart] = useAtom(fullRestartAtom);
 
   // Khi component mount = models đã load xong (Suspense đã resolve)
@@ -44,22 +44,22 @@ const GameSence = ({ onReady }) => {
   }, []);
 
   const spawnVenom = useCallback(() => {
-    setVenoms((list) => {
-      const id = venomIdRef.current++;
-      return [...list, { id, spawnPosition: randomSpawnNearSpiderman() }];
+    setNPC((list) => {
+      const id = npcIdRef.current++;
+      return [...list, { id, spawnPosition: randomSpawnNearUserHero() }];
     });
   }, []);
 
   const handleDespawn = useCallback((id) => {
-    setVenoms((list) => list.filter((v) => v.id !== id));
+    setNPC((list) => list.filter((n) => n.id !== id));
   }, []);
 
   // Handle full restart — clear all venoms and reset spawn timer
   useEffect(() => {
     if (fullRestart) {
       queueMicrotask(() => {
-        setVenoms([]);
-        venomIdRef.current = 0;
+        setNPC([]);
+        npcIdRef.current = 0;
         setFullRestart(false);
       });
     }
@@ -67,7 +67,7 @@ const GameSence = ({ onReady }) => {
 
   useEffect(() => {
     const firstSpawn = setTimeout(spawnVenom, 500);
-    const interval = setInterval(spawnVenom, VENOM_SPAWN_INTERVAL);
+    const interval = setInterval(spawnVenom, NPC_SPAWN_INTERVAL);
     return () => {
       clearTimeout(firstSpawn);
       clearInterval(interval);
@@ -108,19 +108,30 @@ const GameSence = ({ onReady }) => {
       <ambientLight intensity={1.2} />
       <hemisphereLight args={["#bde0ff", "#3a3a3a", 1]} />
       <directionalLight position={[100, 200, 100]} intensity={1.5} />
-      <PerspectiveCamera ref={cameraRefernceRef} position={[0, 1, 10]} near={0.5} far={5000} />
+      <PerspectiveCamera
+        ref={cameraRefernceRef}
+        position={[0, 1, 10]}
+        near={0.5}
+        far={5000}
+      />
       <CameraControls ref={controlsRef} />
-      <Physics gravity={[0, -50, 0]}>
-        <CharacterController cameraControlsRef={controlsRef}/>
-        {/* {venoms.map((v) => (
-          <VenomController
-            key={v.id}
-            id={v.id}
-            spawnPosition={v.spawnPosition}
+      <Physics>
+        <CharacterController cameraControlsRef={controlsRef} />
+        {/* {npc.map((n) => (
+          <NPCMonster
+            key={n.id}
+            id={n.id}
+            spawnPosition={n.spawnPosition}
             onDespawn={handleDespawn}
           />
         ))}  */}
-        <RigidBody type="fixed" colliders="trimesh" position={[17, -10, 0]} scale={4} collisionGroups={interactionGroups([1], [0])}>
+        <RigidBody
+          type="fixed"
+          colliders="trimesh"
+          position={[17, -10, 0]}
+          scale={4}
+          collisionGroups={interactionGroups([1], [0])}
+        >
           <MapStreet />
         </RigidBody>
       </Physics>

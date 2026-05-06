@@ -12,7 +12,7 @@ import FloatingDamage from "./ui/FloatingDamage";
 import { Vector3 } from "three";
 import { useSetAtom, useAtomValue } from "jotai";
 import {
-  spidermanHpAtom,
+  userHeroHpAtom,
   venomHpAtom,
   gameOverAtom,
   winnerAtom,
@@ -34,9 +34,9 @@ const TURN_SPEED = 3.0;            // Tốc độ quay khi nhấn A/D (radian/gi
 const HEADING_LERP = 0.18;         // Hệ số lerp giữa heading hiện tại và target — nhỏ = quay mượt hơn
 const JUMP_FORCE = 25;
 const ATTACK_LUNGE_SPEED = 6;
-const SPIDERMAN_MODEL = "models/character/Yaski.glb";
+const USER_HERO_MODEL = "models/character/Yaski.glb";
 const ATTACK_RANGE = 5;
-const SPIDERMAN_ONE_SHOTS = [
+const USER_HERO_ONE_SHOTS = [
   "Punch",
   "Kick",
   "KickUp",
@@ -44,10 +44,10 @@ const SPIDERMAN_ONE_SHOTS = [
   "Jump",
   "Die",
 ];
-const SPIDERMAN_DAMAGE = { Punch: 1, Kick: 1, KickUp: 3, HookPunch: 3 };
+const USER_HERO_DAMAGE = { Punch: 1, Kick: 1, KickUp: 3, HookPunch: 3 };
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
 const RUN_SOUND_SRC = "/sound/sound_run.MP3";
-const SPIDERMAN_SPAWN = { x: -51.48, y: -2.26, z: 311.29 };
+const USER_HERO_SPAWN = { x: -51.48, y: -2.26, z: 311.29 };
 
 const CharacterController = ({ cameraControlsRef }) => {
   const rigidBodyRef = useRef();
@@ -145,7 +145,7 @@ const CharacterController = ({ cameraControlsRef }) => {
     };
   }, []);
 
-  const setSpidermanHp = useSetAtom(spidermanHpAtom);
+  const userHeroHP = useSetAtom(userHeroHpAtom);
   const setVenomHp = useSetAtom(venomHpAtom);
   const setGameOver = useSetAtom(gameOverAtom);
   const setWinner = useSetAtom(winnerAtom);
@@ -156,14 +156,14 @@ const CharacterController = ({ cameraControlsRef }) => {
     (amount) => {
       if (isDead.current) return;
       hpRef.current = Math.max(0, hpRef.current - amount);
-      setSpidermanHp(hpRef.current);
+      userHeroHP(hpRef.current);
       if (hpRef.current <= 0) {
         isDead.current = true;
         setGameOver(true);
         setWinner("Venom");
       }
     },
-    [setSpidermanHp, setGameOver, setWinner],
+    [userHeroHP, setGameOver, setWinner],
   );
 
   const dealDamageToVenom = useCallback(
@@ -194,7 +194,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       clearTimeout(kickTimer.current);
       clearTimeout(kickUpTimer.current);
       clearTimeout(hookPunchTimer.current);
-      rigidBodyRef.current.setTranslation(SPIDERMAN_SPAWN, true);
+      rigidBodyRef.current.setTranslation(USER_HERO_SPAWN, true);
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
       gameState.targetedVenomId = null;
       // Reset heading + camera để không bị giật khi respawn
@@ -304,9 +304,9 @@ const CharacterController = ({ cameraControlsRef }) => {
     rigidBodyRef.current.setLinvel({ x: moveX, y: finalY, z: moveZ }, true);
 
     // Update shared position (pos đã được khai báo ở trên cùng useFrame)
-    gameState.spiderman.position.x = pos.x;
-    gameState.spiderman.position.y = pos.y;
-    gameState.spiderman.position.z = pos.z;
+    gameState.userhero.position.x = pos.x;
+    gameState.userhero.position.y = pos.y;
+    gameState.userhero.position.z = pos.z;
 
     // Khi đứng yên (không di chuyển và không quay tay) và đang nhắm Venom
     // → set targetHeading về phía Venom; heading sẽ tự lerp mượt sang đó
@@ -380,8 +380,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       jumpLock.current = true;
       jumpImpulseApplied.current = false;
       setAnimation("Jump");
-      gameState.spiderman.isAttacking = false;
-      gameState.spiderman.attackType = null;
+      gameState.userhero.isAttacking = false;
+      gameState.userhero.attackType = null;
       // Delay lực nhảy 300ms để đồng bộ với animation (nhân vật cúi xuống trước rồi mới bật lên)
       clearTimeout(jumpImpulseTimer.current);
       jumpImpulseTimer.current = setTimeout(() => {
@@ -403,17 +403,17 @@ const CharacterController = ({ cameraControlsRef }) => {
       punchLock.current = true;
       setAnimation("Punch");
       playPunchSound();
-      gameState.spiderman.isAttacking = true;
-      gameState.spiderman.attackType = "Punch";
-      gameState.spiderman.hitDealt = false;
+      gameState.userhero.isAttacking = true;
+      gameState.userhero.attackType = "Punch";
+      gameState.userhero.hitDealt = false;
       // Lunge nhẹ về phía target
       const lunge = calcLungeVelocity();
       rigidBodyRef.current.setLinvel({ x: lunge.x, y: finalY, z: lunge.z }, true);
       clearTimeout(punchTimer.current);
       punchTimer.current = setTimeout(() => {
         punchLock.current = false;
-        gameState.spiderman.isAttacking = false;
-        gameState.spiderman.attackType = null;
+        gameState.userhero.isAttacking = false;
+        gameState.userhero.attackType = null;
       }, 800);
     } else if (
       justPressedKick &&
@@ -423,16 +423,16 @@ const CharacterController = ({ cameraControlsRef }) => {
       kickLock.current = true;
       setAnimation("Kick");
       playPunchSound();
-      gameState.spiderman.isAttacking = true;
-      gameState.spiderman.attackType = "Kick";
-      gameState.spiderman.hitDealt = false;
+      gameState.userhero.isAttacking = true;
+      gameState.userhero.attackType = "Kick";
+      gameState.userhero.hitDealt = false;
       const lunge = calcLungeVelocity();
       rigidBodyRef.current.setLinvel({ x: lunge.x, y: finalY, z: lunge.z }, true);
       clearTimeout(kickTimer.current);
       kickTimer.current = setTimeout(() => {
         kickLock.current = false;
-        gameState.spiderman.isAttacking = false;
-        gameState.spiderman.attackType = null;
+        gameState.userhero.isAttacking = false;
+        gameState.userhero.attackType = null;
       }, 1000);
     } else if (
       justPressedKickUp &&
@@ -442,16 +442,16 @@ const CharacterController = ({ cameraControlsRef }) => {
       kickUpLock.current = true;
       setAnimation("KickUp");
       playPunchSound();
-      gameState.spiderman.isAttacking = true;
-      gameState.spiderman.attackType = "KickUp";
-      gameState.spiderman.hitDealt = false;
+      gameState.userhero.isAttacking = true;
+      gameState.userhero.attackType = "KickUp";
+      gameState.userhero.hitDealt = false;
       const lunge = calcLungeVelocity();
       rigidBodyRef.current.setLinvel({ x: lunge.x, y: finalY, z: lunge.z }, true);
       clearTimeout(kickUpTimer.current);
       kickUpTimer.current = setTimeout(() => {
         kickUpLock.current = false;
-        gameState.spiderman.isAttacking = false;
-        gameState.spiderman.attackType = null;
+        gameState.userhero.isAttacking = false;
+        gameState.userhero.attackType = null;
       }, 1400);
     } else if (
       justPressedHookPunch &&
@@ -461,16 +461,16 @@ const CharacterController = ({ cameraControlsRef }) => {
       hookPunchLock.current = true;
       setAnimation("HookPunch");
       playPunchSound();
-      gameState.spiderman.isAttacking = true;
-      gameState.spiderman.attackType = "HookPunch";
-      gameState.spiderman.hitDealt = false;
+      gameState.userhero.isAttacking = true;
+      gameState.userhero.attackType = "HookPunch";
+      gameState.userhero.hitDealt = false;
       const lunge = calcLungeVelocity();
       rigidBodyRef.current.setLinvel({ x: lunge.x, y: finalY, z: lunge.z }, true);
       clearTimeout(hookPunchTimer.current);
       hookPunchTimer.current = setTimeout(() => {
         hookPunchLock.current = false;
-        gameState.spiderman.isAttacking = false;
-        gameState.spiderman.attackType = null;
+        gameState.userhero.isAttacking = false;
+        gameState.userhero.attackType = null;
       }, 1400);
     } else if (!jumpLock.current && !anyAttackLock) {
       if (!isMoving) setAnimation("Idle");
@@ -485,9 +485,9 @@ const CharacterController = ({ cameraControlsRef }) => {
       rigidBodyRef.current.setLinvel({ x: curVel.x * 0.9, y: curVel.y, z: curVel.z * 0.9 }, true);
     }
 
-    // --- Spiderman hits closest Venom in range ---
-    if (gameState.spiderman.isAttacking && !gameState.spiderman.hitDealt) {
-      const dmg = SPIDERMAN_DAMAGE[gameState.spiderman.attackType] ?? 1;
+    // --- User hero hits closest Venom in range ---
+    if (gameState.userhero.isAttacking && !gameState.userhero.hitDealt) {
+      const dmg = USER_HERO_DAMAGE[gameState.userhero.attackType] ?? 1;
       let closestEntry = null;
       let closestDist = ATTACK_RANGE;
       for (const entry of gameState.venoms) {
@@ -502,7 +502,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       }
       if (closestEntry) {
         dealDamageToVenom(closestEntry, dmg);
-        gameState.spiderman.hitDealt = true;
+        gameState.userhero.hitDealt = true;
         gameState.targetedVenomId = closestEntry.id;
         // Floating damage popup
         const popupId = damageIdRef.current++;
@@ -521,7 +521,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       }
     }
 
-    // --- Any Venom hits Spiderman ---
+    // --- Any Venom hits User hero ---
     for (const entry of gameState.venoms) {
       if (!entry.isAttacking || entry.hitDealt) continue;
       const dx = pos.x - entry.position.x;
@@ -641,7 +641,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         colliders={false}
         lockRotations
         type="dynamic"
-        position={[SPIDERMAN_SPAWN.x, SPIDERMAN_SPAWN.y, SPIDERMAN_SPAWN.z]}
+        position={[USER_HERO_SPAWN.x, USER_HERO_SPAWN.y, USER_HERO_SPAWN.z]}
         restitution={0}
         friction={1}
       >
@@ -653,10 +653,10 @@ const CharacterController = ({ cameraControlsRef }) => {
 
         <group ref={characterRef}>
           <Character
-            modelPath={SPIDERMAN_MODEL}
+            modelPath={USER_HERO_MODEL}
             animation={animation}
             scale={10}
-            oneShotList={SPIDERMAN_ONE_SHOTS}
+            oneShotList={USER_HERO_ONE_SHOTS}
           />
         </group>
       </RigidBody>

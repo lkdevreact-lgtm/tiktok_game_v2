@@ -1,6 +1,6 @@
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
 import {
-  spidermanHpAtom,
+  userHeroHpAtom,
   venomHpAtom,
   gameOverAtom,
   winnerAtom,
@@ -40,10 +40,10 @@ const Bar = ({ hp, name, color, side }) => {
 };
 
 const HealthBarHUD = () => {
-  const spidermanHp = useAtomValue(spidermanHpAtom);
+  const spidermanHp = useAtomValue(userHeroHpAtom);
   const gameOver = useAtomValue(gameOverAtom);
   const winner = useAtomValue(winnerAtom);
-  const setSpidermanHp = useSetAtom(spidermanHpAtom);
+  const setSpidermanHp = useSetAtom(userHeroHpAtom);
   const setVenomHp = useSetAtom(venomHpAtom);
   const setGameOver = useSetAtom(gameOverAtom);
   const setWinner = useSetAtom(winnerAtom);
