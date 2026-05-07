@@ -6,3 +6,19 @@ export const IMAGES = {
 };
 
 export const SETTINGS_GAME = {};
+
+export const EVENT_ICONS = {
+  comment: "💬",
+  like: "❤️",
+  share: "🔗",
+  follow: "👤",
+  gift: "🎁",
+};
+
+export const EVENT_LABELS = {
+  comment: "Comment",
+  like: "Like",
+  share: "Share",
+  follow: "Follow",
+  gift: "Gift",
+};

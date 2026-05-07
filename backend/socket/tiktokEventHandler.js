@@ -81,7 +81,9 @@ export function attachTikTokEvents(connection, username) {
   for (const evt of MANAGED_EVENTS) {
     connection.removeAllListeners(evt);
   }
-  console.log(`[tiktokEventHandler] cleared old listeners, attaching fresh for @${username}`);
+  console.log(
+    `[tiktokEventHandler] cleared old listeners, attaching fresh for @${username}`,
+  );
 
   // ── Chat (comment) ──────────────────────────────────────
   connection.on("chat", (data) => {
@@ -99,10 +101,16 @@ export function attachTikTokEvents(connection, username) {
   // ── Gift ────────────────────────────────────────────────
   connection.on("gift", (data) => {
     // Log toàn bộ keys có sẵn lần đầu để debug
-    console.log("[tiktok:gift] ALL KEYS:", Object.keys(data).join(", "));
-    console.log("[tiktok:gift] giftType=%s repeatEnd=%s repeatCount=%s giftId=%s giftName=%s msgId=%s",
-      data.giftType, data.repeatEnd, data.repeatCount, data.giftId,
-      data.giftName || data.describe || data.gift_name, data.msgId);
+    // console.log("[tiktok:gift] ALL KEYS:", Object.keys(data).join(", "));
+    // console.log(
+    //   "[tiktok:gift] giftType=%s repeatEnd=%s repeatCount=%s giftId=%s giftName=%s msgId=%s",
+    //   data.giftType,
+    //   data.repeatEnd,
+    //   data.repeatCount,
+    //   data.giftId,
+    //   data.giftName || data.describe || data.gift_name,
+    //   data.msgId,
+    // );
 
     // Chỉ xử lý streak gift khi repeatEnd = true
     if (data.giftType === 1 && !data.repeatEnd) return;
@@ -112,12 +120,18 @@ export function attachTikTokEvents(connection, username) {
     // ⚡ DEDUP: block duplicate gift event (tiktok-live-connector fire 2 lần)
     if (isGiftDuplicate(user.username, data.giftId)) return;
 
-    const giftName = data.giftName || data.gift_name || data.describe ||
-                     data.giftDetails?.giftName || "Gift";
-    const giftPicture = data.giftPictureUrl ||
-                        data.giftDetails?.giftPictureUrl ||
-                        data.image?.url_list?.[0] ||
-                        data.image?.urlList?.[0] || "";
+    const giftName =
+      data.giftName ||
+      data.gift_name ||
+      data.describe ||
+      data.giftDetails?.giftName ||
+      "Gift";
+    const giftPicture =
+      data.giftPictureUrl ||
+      data.giftDetails?.giftPictureUrl ||
+      data.image?.url_list?.[0] ||
+      data.image?.urlList?.[0] ||
+      "";
 
     io.emit("tiktok:gift", {
       type: "gift",

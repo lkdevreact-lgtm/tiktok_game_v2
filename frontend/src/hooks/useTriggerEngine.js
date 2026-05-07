@@ -55,12 +55,12 @@ export function useTriggerEngine(socket) {
     const processEvent = (eventType, data) => {
       if (!loadedRef.current) return;
 
-      console.log(`[TriggerEngine] Received event: ${eventType}`, {
-        comment: data.comment,
-        giftId: data.giftId,
-        giftName: data.giftName,
-        username: data.username,
-      });
+      // console.log(`[TriggerEngine] Received event: ${eventType}`, {
+      //   comment: data.comment,
+      //   giftId: data.giftId,
+      //   giftName: data.giftName,
+      //   username: data.username,
+      // });
 
       // Tìm triggers match event type + điều kiện
       const matching = triggersRef.current.filter((t) => {
@@ -112,9 +112,9 @@ export function useTriggerEngine(socket) {
 
         countersRef.current[triggerId] += increment;
 
-        console.log(
-          `[TriggerEngine] Trigger "${t.name}" counter: ${countersRef.current[triggerId]}/${threshold}`,
-        );
+        // console.log(
+        //   `[TriggerEngine] Trigger "${t.name}" counter: ${countersRef.current[triggerId]}/${threshold}`,
+        // );
 
         // Kiểm tra đạt ngưỡng chưa
         if (countersRef.current[triggerId] >= threshold) {
@@ -126,9 +126,9 @@ export function useTriggerEngine(socket) {
             count: t.npc_count || 1,
           });
 
-          console.log(
-            `[TriggerEngine] ✅ Trigger "${t.name}" FIRED! Spawning ${t.npc_count}× ${t.npc_type}`,
-          );
+          // console.log(
+          //   `[TriggerEngine] ✅ Trigger "${t.name}" FIRED! Spawning ${t.npc_count}× ${t.npc_type}`,
+          // );
         }
       }
 
@@ -149,7 +149,7 @@ export function useTriggerEngine(socket) {
     socket.on("tiktok:share", onShare);
     socket.on("tiktok:follow", onFollow);
 
-    console.log("[TriggerEngine] Socket listeners attached");
+    // console.log("[TriggerEngine] Socket listeners attached");
 
     return () => {
       socket.off("tiktok:chat", onChat);
@@ -157,7 +157,7 @@ export function useTriggerEngine(socket) {
       socket.off("tiktok:like", onLike);
       socket.off("tiktok:share", onShare);
       socket.off("tiktok:follow", onFollow);
-      console.log("[TriggerEngine] Socket listeners removed");
+      // console.log("[TriggerEngine] Socket listeners removed");
     };
   }, [socket, setSpawnRequests]);
 }

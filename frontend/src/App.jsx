@@ -10,6 +10,7 @@ import HealthBarHUD from './components/ui/HealthBarHUD'
 import GameLoader from './components/ui/GameLoader'
 import TikTokConnectForm from './components/ui/TikTokConnectForm'
 import LiveChatOverlay from './components/ui/LiveChatOverlay'
+import TriggerPanel from './components/ui/TriggerPanel'
 import { useSocket } from './hooks/useSocket'
 import { useTriggerEngine } from './hooks/useTriggerEngine'
 
@@ -52,6 +53,7 @@ const App = () => {
       {showLoader && <GameLoader ready={ready} onFadeComplete={handleLoaderDone} />}
       {!showLoader && <HealthBarHUD />}
       {!showLoader && <LiveChatOverlay socket={socket} />}
+      {!showLoader && <TriggerPanel />}
     </div>
   )
 }

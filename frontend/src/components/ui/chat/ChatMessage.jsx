@@ -1,9 +1,6 @@
 import ChatAvatar from "./ChatAvatar";
 
-/**
- * Render 1 message trong LiveChatOverlay.
- * Tuỳ theo type mà hiển thị khác nhau.
- */
+
 const ChatMessage = ({ message }) => {
   switch (message.type) {
     case "chat":

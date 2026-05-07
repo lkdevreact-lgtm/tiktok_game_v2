@@ -39,11 +39,11 @@ export function useLiveChat(socket) {
       const hash = hashMsg(msg);
 
       // Debug: log mỗi event nhận được
-      console.log(`[useLiveChat #${myAttachId}] received ${msg.type}:`, hash);
+      // console.log(`[useLiveChat #${myAttachId}] received ${msg.type}:`, hash);
 
       // Nếu message này đã xuất hiện trong DEDUP_WINDOW_MS → bỏ qua
       if (recentHashesRef.current.has(hash)) {
-        console.log(`[useLiveChat #${myAttachId}] DUPLICATE blocked:`, hash);
+        // console.log(`[useLiveChat #${myAttachId}] DUPLICATE blocked:`, hash);
         return;
       }
 
@@ -76,7 +76,7 @@ export function useLiveChat(socket) {
     socket.on("tiktok:member", onMember);
 
     return () => {
-      console.log(`[useLiveChat] removing listeners (attach #${myAttachId})`);
+      // console.log(`[useLiveChat] removing listeners (attach #${myAttachId})`);
       socket.off("tiktok:chat", onChat);
       socket.off("tiktok:gift", onGift);
       socket.off("tiktok:like", onLike);
