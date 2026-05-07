@@ -33,10 +33,15 @@ function extractUser(data) {
   };
 }
 
+// Track connections that already have listeners attached to prevent duplicates
+const attachedConnections = new WeakSet();
+
 /**
  * Gắn event listeners lên TikTokLiveConnection,
  * broadcast tất cả sự kiện (chat, gift, like, share, follow, member)
  * tới tất cả clients qua Socket.IO.
+ *
+ * Sẽ skip nếu connection đã được gắn listeners rồi (tránh duplicate).
  *
  * @param {import('tiktok-live-connector').TikTokLiveConnection} connection
  * @param {string} username
@@ -47,6 +52,13 @@ export function attachTikTokEvents(connection, username) {
     console.warn("[tiktokEventHandler] Socket.IO chưa khởi tạo, bỏ qua.");
     return;
   }
+
+  // Nếu connection này đã được gắn listeners → skip để tránh duplicate
+  if (attachedConnections.has(connection)) {
+    console.log(`[tiktokEventHandler] events already attached for @${username}, skipping.`);
+    return;
+  }
+  attachedConnections.add(connection);
 
   // ── Chat (comment) ──────────────────────────────────────
   connection.on("chat", (data) => {

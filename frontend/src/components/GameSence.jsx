@@ -10,7 +10,7 @@ import MapStreet from "./ui/MapStreet";
 import { useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
 import CharacterController from "./CharacterController";
-import { gameState, fullRestartAtom } from "../stores/gameStore";
+import { gameState, fullRestartAtom, spawnRequestAtom } from "../stores/gameStore";
 import { useAtom } from "jotai";
 import NPCMonster from "./NPCMonster";
 
@@ -43,16 +43,17 @@ const GameSence = ({ onReady }) => {
   const npcIdRef = useRef(0);
   const [npc, setNPC] = useState([]);
   const [fullRestart, setFullRestart] = useAtom(fullRestartAtom);
+  const [spawnRequests, setSpawnRequests] = useAtom(spawnRequestAtom);
 
   // Khi component mount = models đã load xong (Suspense đã resolve)
   useEffect(() => {
     onReady?.();
   }, []);
 
-  const spawnNPC = useCallback(() => {
+  const spawnNPC = useCallback((npcTypeId = "npc1") => {
     setNPC((list) => {
       const id = npcIdRef.current++;
-      return [...list, { id, spawnPosition: randomSpawnNearUserHero() }];
+      return [...list, { id, spawnPosition: randomSpawnNearUserHero(), npcId: npcTypeId }];
     });
   }, []);
 
@@ -70,6 +71,20 @@ const GameSence = ({ onReady }) => {
       });
     }
   }, [fullRestart, setFullRestart]);
+
+  // Listen to spawn requests from Trigger Engine
+  useEffect(() => {
+    if (spawnRequests.length === 0) return;
+    // Process all pending spawn requests
+    for (const req of spawnRequests) {
+      const count = req.count || 1;
+      for (let i = 0; i < count; i++) {
+        spawnNPC(req.npcId || "npc1");
+      }
+    }
+    // Clear the queue
+    setSpawnRequests([]);
+  }, [spawnRequests, setSpawnRequests, spawnNPC]);
 
   useEffect(() => {
     const firstSpawn = setTimeout(spawnNPC, 500);
@@ -134,6 +149,7 @@ const GameSence = ({ onReady }) => {
             id={n.id}
             spawnPosition={n.spawnPosition}
             onDespawn={handleDespawn}
+            npcId={n.npcId}
           />
         ))} 
         <RigidBody

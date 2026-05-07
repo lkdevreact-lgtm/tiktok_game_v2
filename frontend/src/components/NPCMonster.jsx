@@ -14,27 +14,25 @@ import {
   blockIfTooClose,
   CHAR_BLOCK_RADIUS,
 } from "../stores/gameStore";
+import { getNpcById, getDefaultNpc } from "../config/npcRegistry";
 
-const NPC_MODEL = "models/character/NPC1.glb";
-const NPC_SPAWN_SOUND = "sound/vine_boom.mp3";
-const MOVE_SPEED = 20;
-const ATTACK_RANGE = 5;
 const PUNCH_DURATION = 900;
 const PUNCH_COOLDOWN = 1500;
 const DIE_ANIM_HOLD = 1500; // giữ animation Die trước khi fade
 const FADE_DURATION = 2000; // thời gian fade opacity
-
-const NPC_ONE_SHOTS = ["Punch", "Die"];
 
 // Stuck detection: nếu NPC monster định di chuyển nhưng vận tốc gần 0 → đang đâm tường
 const STUCK_SPEED_THRESHOLD = 0.5;
 const STUCK_FRAME_THRESHOLD = 20; // ~0.33s @ 60fps
 const SIDESTEP_FRAMES = 45; // né 90° trong ~0.75s rồi thử lại
 
-const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
+const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
+  // Lấy config từ NPC Registry theo npcId, fallback về NPC mặc định
+  const npcConfig = getNpcById(npcId) || getDefaultNpc();
+
   const rigidBodyRef = useRef();
   const characterRef = useRef();
-  const [animation, setAnimation] = useState("Idle");
+  const [animation, setAnimation] = useState(npcConfig.animations.idle);
 
   const punchLock = useRef(false);
   const punchTimer = useRef(null);
@@ -53,11 +51,29 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
   const sidestepDirRef = useRef(0); // 0 = off, +1/-1 = hướng né
   const sidestepFramesRef = useRef(0);
 
+  // Destructure config values for easy access
+  const {
+    modelPath,
+    hp: initialHp,
+    scale,
+    damage,
+    moveSpeed,
+    attackRange,
+    capsuleHalfHeight,
+    capsuleRadius,
+    capsuleOffsetY,
+    animations: animNames,
+    oneShotAnims,
+    spawnSound,
+  } = npcConfig;
+
   // Play spawn sound khi NPC monster xuất hiện
   useEffect(() => {
-    const audio = new Audio(NPC_SPAWN_SOUND);
-    audio.volume = 0.5;
-    audio.play().catch(() => {});
+    if (spawnSound) {
+      const audio = new Audio(spawnSound);
+      audio.volume = 0.5;
+      audio.play().catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -67,7 +83,8 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
       isAttacking: false,
       attackType: null,
       hitDealt: false,
-      hp: 15,
+      hp: initialHp,
+      damage,
     };
     gameState.NPC.push(entry);
     entryRef.current = entry;
@@ -103,7 +120,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
         landedFrames.current = 0;
       }
       clearTimeout(punchTimer.current);
-      entry.hp = 15;
+      entry.hp = initialHp;
       entry.isAttacking = false;
       entry.attackType = null;
       entry.hitDealt = false;
@@ -111,7 +128,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
       sidestepDirRef.current = 0;
       sidestepFramesRef.current = 0;
       setOpacity(1);
-      setAnimation("Idle");
+      setAnimation(animNames.idle);
       prevGameOverRef.current = false;
     }
     prevGameOverRef.current = gameOver;
@@ -124,7 +141,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
       const entry = entryRef.current;
       entry.isAttacking = false;
       entry.attackType = null;
-      setAnimation("Idle");
+      setAnimation(animNames.idle);
       return;
     }
 
@@ -134,7 +151,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
     if (entry.hp <= 0 && !isDead.current) {
       isDead.current = true;
       dieStartRef.current = performance.now();
-      setAnimation("Die");
+      setAnimation(animNames.die);
       rigidBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
       entry.isAttacking = false;
       entry.attackType = null;
@@ -178,7 +195,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
     if (isFalling.current) {
       // Lock horizontal movement — only allow gravity (vertical)
       rigidBodyRef.current.setLinvel({ x: 0, y: velocity.y, z: 0 }, true);
-      setAnimation("Idle");
+      setAnimation(animNames.idle);
       entry.isAttacking = false;
       entry.attackType = null;
       // Track that fall has begun (velocity going down)
@@ -201,7 +218,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
       return;
     }
 
-    if (dist > ATTACK_RANGE && !punchLock.current) {
+    if (dist > attackRange && !punchLock.current) {
       // Stuck detection: setLinvel set velocity trực tiếp, nhưng khi va tường
       // physics engine xoá component theo normal → linvel().xz sẽ ~0.
       const horizontalSpeed = Math.sqrt(
@@ -222,8 +239,8 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
         sidestepFramesRef.current = SIDESTEP_FRAMES;
       }
 
-      let nx = (dx / dist) * MOVE_SPEED;
-      let nz = (dz / dist) * MOVE_SPEED;
+      let nx = (dx / dist) * moveSpeed;
+      let nz = (dz / dist) * moveSpeed;
 
       // Đang sidestep → xoay hướng di chuyển 90° để đi dọc tường
       if (sidestepFramesRef.current > 0) {
@@ -264,25 +281,25 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
         );
       }
       rigidBodyRef.current.setLinvel({ x: nx, y: clampedY, z: nz }, true);
-      setAnimation("Run");
+      setAnimation(animNames.run);
       entry.isAttacking = false;
       entry.attackType = null;
-    } else if (dist <= ATTACK_RANGE && !punchLock.current) {
+    } else if (dist <= attackRange && !punchLock.current) {
       rigidBodyRef.current.setLinvel({ x: 0, y: clampedY, z: 0 }, true);
       punchLock.current = true;
       stuckFramesRef.current = 0;
       sidestepDirRef.current = 0;
       sidestepFramesRef.current = 0;
-      setAnimation("Punch");
+      setAnimation(animNames.attack);
       entry.isAttacking = true;
-      entry.attackType = "Punch";
+      entry.attackType = animNames.attack;
       entry.hitDealt = false;
 
       clearTimeout(punchTimer.current);
       punchTimer.current = setTimeout(() => {
         entry.isAttacking = false;
         entry.attackType = null;
-        setAnimation("Idle");
+        setAnimation(animNames.idle);
         setTimeout(() => {
           punchLock.current = false;
         }, PUNCH_COOLDOWN - PUNCH_DURATION);
@@ -300,16 +317,16 @@ const NPCMonster = ({ id, spawnPosition, onDespawn }) => {
       position={[spawnPosition.x, spawnPosition.y, spawnPosition.z]}
     >
       <CapsuleCollider
-        args={[8.3, 5.5]}
-        position={[0, 13.7, 0]}
+        args={[capsuleHalfHeight, capsuleRadius]}
+        position={[0, capsuleOffsetY, 0]}
         collisionGroups={interactionGroups([0], [1])}
       />
       <group ref={characterRef}>
         <Character
-          modelPath={NPC_MODEL}
+          modelPath={modelPath}
           animation={animation}
-          scale={10}
-          oneShotList={NPC_ONE_SHOTS}
+          scale={scale}
+          oneShotList={oneShotAnims}
           opacity={opacity}
         />
       </group>

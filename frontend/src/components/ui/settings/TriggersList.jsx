@@ -6,6 +6,7 @@ import {
   updateTrigger,
   deleteTrigger,
 } from "../../../api/triggers";
+import { NPC_REGISTRY } from "../../../config/npcRegistry";
 
 const EVENT_TYPES = [
   { value: "comment", label: "Comment" },
@@ -21,7 +22,7 @@ const EMPTY_FORM = {
   match_value: "",
   threshold: 1,
   gift_id: "",
-  npc_type: "monster",
+  npc_type: NPC_REGISTRY[0]?.id || "npc1",
   npc_count: 1,
   active: true,
 };
@@ -62,7 +63,7 @@ const TriggersList = ({ gifts = [] }) => {
         match_value: t.match_value || "",
         threshold: t.threshold,
         gift_id: t.gift_id ?? "",
-        npc_type: t.npc_type || "",
+        npc_type: t.npc_type || NPC_REGISTRY[0]?.id || "npc1",
         npc_count: t.npc_count,
         active: !!t.active,
       },
@@ -203,6 +204,12 @@ const TriggerRow = ({ trigger, gifts, disabled, onEdit, onDelete, onToggle }) =>
         `#${trigger.gift_id}`
       : null;
 
+  // Tìm label NPC từ registry
+  const npcEntry = NPC_REGISTRY.find((n) => n.id === trigger.npc_type);
+  const npcLabel = npcEntry
+    ? `${npcEntry.label} (${npcEntry.id})`
+    : trigger.npc_type;
+
   return (
     <li className="flex items-center gap-3 px-3 py-2.5 transition hover:bg-white/5">
       <div className="min-w-0 flex-1">
@@ -225,7 +232,7 @@ const TriggerRow = ({ trigger, gifts, disabled, onEdit, onDelete, onToggle }) =>
           <span>Ngưỡng: {trigger.threshold}</span>
           <span className="text-slate-600">•</span>
           <span>
-            Spawn: {trigger.npc_count}× {trigger.npc_type}
+            Spawn: {trigger.npc_count}× {npcLabel}
           </span>
         </div>
       </div>
@@ -298,7 +305,7 @@ const TriggerEditor = ({ gifts, mode, initialForm, onCancel, onSubmit }) => {
               value={form.name}
               onChange={(e) => setField("name", e.target.value)}
               required
-              placeholder="VD: Comment 111 → spawn monster"
+              placeholder="VD: Comment 111 → spawn NPC"
               className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-blue-500/50 focus:outline-none"
             />
           </Field>
@@ -360,14 +367,17 @@ const TriggerEditor = ({ gifts, mode, initialForm, onCancel, onSubmit }) => {
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Loại NPC">
-              <input
-                type="text"
+              <select
                 value={form.npc_type}
                 onChange={(e) => setField("npc_type", e.target.value)}
-                required
-                placeholder="VD: monster, boss..."
-                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-blue-500/50 focus:outline-none"
-              />
+                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+              >
+                {NPC_REGISTRY.map((npc) => (
+                  <option key={npc.id} value={npc.id}>
+                    {npc.label} ({npc.id})
+                  </option>
+                ))}
+              </select>
             </Field>
 
             <Field label="Số lượng NPC">

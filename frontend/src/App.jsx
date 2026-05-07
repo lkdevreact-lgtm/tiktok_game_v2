@@ -10,11 +10,19 @@ import HealthBarHUD from './components/ui/HealthBarHUD'
 import GameLoader from './components/ui/GameLoader'
 import TikTokConnectForm from './components/ui/TikTokConnectForm'
 import LiveChatOverlay from './components/ui/LiveChatOverlay'
+import { useSocket } from './hooks/useSocket'
+import { useTriggerEngine } from './hooks/useTriggerEngine'
 
 const App = () => {
   const [tiktokSession, setTiktokSession] = useState(null);
   const [ready, setReady] = useState(false);
   const [showLoader, setShowLoader] = useState(true);
+
+  // Single socket instance shared by LiveChatOverlay and TriggerEngine
+  const { socket } = useSocket();
+
+  // Trigger Engine — lắng nghe TikTok events và spawn NPC theo trigger rules
+  useTriggerEngine(socket);
 
   const handleReady = useCallback(() => {
     setReady(true);
@@ -43,7 +51,7 @@ const App = () => {
       </Canvas>
       {showLoader && <GameLoader ready={ready} onFadeComplete={handleLoaderDone} />}
       {!showLoader && <HealthBarHUD />}
-      {!showLoader && <LiveChatOverlay />}
+      {!showLoader && <LiveChatOverlay socket={socket} />}
     </div>
   )
 }

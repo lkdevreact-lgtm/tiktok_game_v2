@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { useSocket } from "../../hooks/useSocket";
 import { useLiveChat } from "../../hooks/useLiveChat";
 import ChatMessage from "./chat/ChatMessage";
 import { IoChevronDown, IoChevronUp, IoChatbubbles } from "react-icons/io5";
 
-const LiveChatOverlay = () => {
-  const { socket, connected } = useSocket();
+const LiveChatOverlay = ({ socket }) => {
   const { messages } = useLiveChat(socket);
   const scrollRef = useRef(null);
   const [collapsed, setCollapsed] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
+
+  const connected = !!socket?.connected;
 
   // Auto-scroll khi có message mới
   useEffect(() => {

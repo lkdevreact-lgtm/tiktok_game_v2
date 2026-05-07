@@ -11,6 +11,11 @@ export const MAX_PLAYS = 5;
 export const playCountAtom = atom(0); // how many rounds played (starts at 0)
 export const fullRestartAtom = atom(false); // triggers full game restart
 
+// Spawn request queue: trigger engine pushes { npcId, count } entries,
+// GameSence consumes them and spawns NPCs accordingly.
+// Each entry: { npcId: string, count: number }
+export const spawnRequestAtom = atom([]);
+
 // Tổng bán kính "cấm overlap" giữa 2 nhân vật (capsule radius ~1.3 mỗi bên)
 export const CHAR_BLOCK_RADIUS = 3;
 
