@@ -9,6 +9,7 @@ import {
   playCountAtom,
   fullRestartAtom,
   NPCHpAtom,
+  teleportCooldownAtom,
 } from "../../stores/gameStore";
 import { AiFillSetting } from "react-icons/ai";
 import SettingsModal from "./settings/SettingsModal";
@@ -51,6 +52,7 @@ const HealthBarHUD = () => {
   const setWinner = useSetAtom(winnerAtom);
   const [playCount, setPlayCount] = useAtom(playCountAtom);
   const setFullRestart = useSetAtom(fullRestartAtom);
+  const teleportCd = useAtomValue(teleportCooldownAtom);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const remainingPlays = MAX_PLAYS - playCount;
@@ -155,9 +157,40 @@ const HealthBarHUD = () => {
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-      {/* Health bar at bottom */}
-      <div className="absolute bottom-6 left-0 right-0 flex px-8">
+      {/* Health bar + Teleport cooldown at bottom */}
+      <div className="absolute bottom-6 left-0 right-0 flex items-end px-8 gap-4">
         <Bar hp={userHeroHp} name="User Hero" color="#3b82f6" side="left" />
+
+        {/* Teleport skill indicator */}
+        <div className="flex flex-col items-center gap-1">
+          <div
+            className={`relative flex h-12 w-12 items-center justify-center rounded-xl border-2 ${
+              teleportCd > 0
+                ? "border-white/20 bg-black/60"
+                : "border-cyan-400/60 bg-cyan-500/20 shadow-lg shadow-cyan-500/30"
+            } transition-all duration-300`}
+          >
+            <span className="text-lg font-bold select-none">
+              {teleportCd > 0 ? (
+                <span className="text-white/50">{teleportCd}</span>
+              ) : (
+                <span className="text-cyan-300">T</span>
+              )}
+            </span>
+            {/* Cooldown overlay */}
+            {teleportCd > 0 && (
+              <div
+                className="absolute inset-0 rounded-xl bg-black/40"
+                style={{
+                  clipPath: `inset(${((20 - teleportCd) / 20) * 100}% 0 0 0)`,
+                }}
+              />
+            )}
+          </div>
+          <span className="text-[10px] text-white/40 font-medium">
+            {teleportCd > 0 ? "Cooldown" : "Ready"}
+          </span>
+        </div>
       </div>
 
       {/* Game over overlay */}

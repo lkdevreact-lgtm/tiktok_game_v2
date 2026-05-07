@@ -10,6 +10,7 @@ import {
 import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import Character from "./ui/Character";
 import FloatingDamage from "./ui/FloatingDamage";
+import TeleportEffect from "./ui/TeleportEffect";
 import { Vector3 } from "three";
 import { useSetAtom, useAtomValue } from "jotai";
 import {
@@ -20,6 +21,7 @@ import {
   blockIfTooClose,
   CHAR_BLOCK_RADIUS,
   NPCHpAtom,
+  teleportCooldownAtom,
 } from "../stores/gameStore";
 import { getAnimLockMs } from "../lib/animConfig";
 
@@ -177,6 +179,8 @@ const CharacterController = ({ cameraControlsRef }) => {
   const teleportCooldownRef = useRef(false);
   const [teleportReady, setTeleportReady] = useState(true);
   const teleportSoundRef = useRef(null);
+  const [teleportEffects, setTeleportEffects] = useState([]);
+  const teleportEffectIdRef = useRef(0);
   const hpRef = useRef(100);
   const isDead = useRef(false);
 
@@ -221,6 +225,7 @@ const CharacterController = ({ cameraControlsRef }) => {
   const setNPCHp = useSetAtom(NPCHpAtom);
   const setGameOver = useSetAtom(gameOverAtom);
   const setWinner = useSetAtom(winnerAtom);
+  const setTeleportCd = useSetAtom(teleportCooldownAtom);
   const gameOver = useAtomValue(gameOverAtom);
   const prevGameOver = useRef(false);
 
@@ -443,12 +448,21 @@ const CharacterController = ({ cameraControlsRef }) => {
     if (justPressedTeleport && !teleportCooldownRef.current && !isDead.current) {
       const heading = headingRef.current;
       const curPos = rigidBodyRef.current.translation();
+      const oldPos = { x: curPos.x, y: curPos.y, z: curPos.z };
       const teleX = curPos.x + Math.sin(heading) * TELEPORT_DISTANCE;
       const teleZ = curPos.z + Math.cos(heading) * TELEPORT_DISTANCE;
+      const newPos = { x: teleX, y: curPos.y, z: teleZ };
       rigidBodyRef.current.setTranslation(
         { x: teleX, y: curPos.y, z: teleZ },
         true,
       );
+      // Spawn hiệu ứng ở vị trí cũ + mới
+      const eid = teleportEffectIdRef.current++;
+      setTeleportEffects((prev) => [
+        ...prev,
+        { id: eid, position: oldPos },
+        { id: eid + 1000, position: newPos },
+      ]);
       // Camera snap ngay vị trí mới
       cameraInitRef.current = false;
       // Sound
@@ -461,10 +475,19 @@ const CharacterController = ({ cameraControlsRef }) => {
       // Cooldown
       teleportCooldownRef.current = true;
       setTeleportReady(false);
-      setTimeout(() => {
-        teleportCooldownRef.current = false;
-        setTeleportReady(true);
-      }, TELEPORT_COOLDOWN);
+      // Đếm ngược hiển thị trên HUD (mỗi giây)
+      const totalSecs = TELEPORT_COOLDOWN / 1000;
+      setTeleportCd(totalSecs);
+      let remaining = totalSecs;
+      const cdInterval = setInterval(() => {
+        remaining--;
+        setTeleportCd(Math.max(0, remaining));
+        if (remaining <= 0) {
+          clearInterval(cdInterval);
+          teleportCooldownRef.current = false;
+          setTeleportReady(true);
+        }
+      }, 1000);
     }
 
     const anyAttackLock =
@@ -871,6 +894,17 @@ const CharacterController = ({ cameraControlsRef }) => {
           damage={popup.damage}
           position={popup.position}
           onComplete={handleDamageComplete}
+        />
+      ))}
+
+      {/* Teleport effects */}
+      {teleportEffects.map((fx) => (
+        <TeleportEffect
+          key={fx.id}
+          position={fx.position}
+          onComplete={() =>
+            setTeleportEffects((prev) => prev.filter((e) => e.id !== fx.id))
+          }
         />
       ))}
     </>
