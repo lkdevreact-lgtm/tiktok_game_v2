@@ -12,7 +12,7 @@ const TriggerPanel = () => {
 
   // Drag state
   const panelRef = useRef(null);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [pos, setPos] = useState({ x: 0, y:0 });
   const [initialized, setInitialized] = useState(false);
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -45,7 +45,7 @@ const TriggerPanel = () => {
     const rect = panelRef.current.getBoundingClientRect();
     setPos({
       x: window.innerWidth - rect.width - 16,
-      y: Math.round((window.innerHeight - rect.height) / 2),
+      y: Math.round((window.innerHeight - rect.height) / 4),
     });
     setInitialized(true);
   }, [loading, initialized]);
@@ -92,9 +92,8 @@ const TriggerPanel = () => {
       <div className="flex flex-col gap-1.5 rounded-xl border border-white/10 bg-black/50 px-3 py-3 backdrop-blur-md">
         {/* Header — drag handle */}
         <div className="mb-1 flex items-center gap-1.5">
-          <span className="text-sm">⚡</span>
           <span className="text-[11px] font-bold uppercase tracking-wider text-white/70">
-            Triệu hồi
+            Triệu hồi NPC
           </span>
           <span className="ml-auto text-[10px] text-white/20">⠿</span>
         </div>

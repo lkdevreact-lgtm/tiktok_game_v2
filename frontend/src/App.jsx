@@ -37,7 +37,7 @@ const App = () => {
     setTiktokSession(session);
   }, []);
 
-  if (!tiktokSession) {
+  if (tiktokSession) {
     return <TikTokConnectForm onConnected={handleConnected} />;
   }
 

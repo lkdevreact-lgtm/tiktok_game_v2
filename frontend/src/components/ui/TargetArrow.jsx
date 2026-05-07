@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 
-const BASE_Y = 10;
+const BASE_Y = 20;
 const BOB_AMPLITUDE = 0.4;
 const BOB_SPEED = 4;
 const SPIN_SPEED = 2;
