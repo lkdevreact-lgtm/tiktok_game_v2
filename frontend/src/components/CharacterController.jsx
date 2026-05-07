@@ -37,7 +37,7 @@ const HEADING_LERP = 0.18;         // Hệ số lerp giữa heading hiện tại
 const JUMP_FORCE = 25;
 const ATTACK_LUNGE_SPEED = 6;
 const USER_HERO_MODEL = "models/character/Neptune.glb";
-const ATTACK_RANGE = 5;
+const ATTACK_RANGE = 12;
 const USER_HERO_ONE_SHOTS = [
   "Punch",
   "Kick",
@@ -155,6 +155,13 @@ const CharacterController = ({ cameraControlsRef }) => {
       audio.pause();
       audio.src = "";
     };
+  }, []);
+
+  // Play spawn sound khi hero xuất hiện
+  useEffect(() => {
+    const spawnAudio = new Audio("sound/chanchann.mp3");
+    spawnAudio.volume = 0.7;
+    spawnAudio.play().catch(() => { });
   }, []);
   const prevKeys = useRef({
     punch: false,
@@ -805,7 +812,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         <CapsuleCollider
           args={[6.3, 3.9]}
           position={[0, 10.2, 0]}
-          collisionGroups={interactionGroups([0], [1])}
+          collisionGroups={interactionGroups([0], [1, 2])}
         />
 
         <group ref={characterRef}>

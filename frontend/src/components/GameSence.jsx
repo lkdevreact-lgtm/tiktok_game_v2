@@ -157,7 +157,7 @@ const GameSence = ({ onReady }) => {
           colliders="trimesh"
           position={[17, -10, 0]}
           scale={4}
-          collisionGroups={interactionGroups([1], [0])}
+          collisionGroups={interactionGroups([1], [0, 2])}
         >
           <MapStreet />
         </RigidBody>

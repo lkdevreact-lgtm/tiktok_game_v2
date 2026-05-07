@@ -72,7 +72,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
     if (spawnSound) {
       const audio = new Audio(spawnSound);
       audio.volume = 0.5;
-      audio.play().catch(() => {});
+      audio.play().catch(() => { });
     }
   }, []);
 
@@ -239,8 +239,52 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
         sidestepFramesRef.current = SIDESTEP_FRAMES;
       }
 
-      let nx = (dx / dist) * moveSpeed;
-      let nz = (dz / dist) * moveSpeed;
+      // ── Pursuit vector (hướng về hero) ──
+      let pursuitX = (dx / dist) * moveSpeed;
+      let pursuitZ = (dz / dist) * moveSpeed;
+
+      // ── Separation steering (tránh NPC khác) ──
+      // Mỗi NPC gần hơn SEPARATION_RADIUS sẽ đẩy NPC này ra xa.
+      // Lực đẩy tỷ lệ nghịch bình phương với khoảng cách → rất mạnh khi gần.
+      const SEPARATION_RADIUS = 15;
+      const SEPARATION_STRENGTH = 1.5; // mạnh hơn pursuit → NPC ưu tiên tránh nhau
+      let sepX = 0;
+      let sepZ = 0;
+      let sepCount = 0;
+
+      for (const other of gameState.NPC) {
+        if (other === entry || other.hp <= 0) continue;
+        const ox = NPCPos.x - other.position.x;
+        const oz = NPCPos.z - other.position.z;
+        const oDist = Math.sqrt(ox * ox + oz * oz);
+        if (oDist > 0.01 && oDist < SEPARATION_RADIUS) {
+          // Lực đẩy mạnh: bình phương weight → gần nhau = đẩy rất mạnh
+          const weight = (1 - oDist / SEPARATION_RADIUS);
+          const w2 = weight * weight; // squared falloff
+          sepX += (ox / oDist) * w2;
+          sepZ += (oz / oDist) * w2;
+          sepCount++;
+        }
+      }
+
+      if (sepCount > 0) {
+        const sepLen = Math.sqrt(sepX * sepX + sepZ * sepZ);
+        if (sepLen > 0.01) {
+          sepX = (sepX / sepLen) * moveSpeed * SEPARATION_STRENGTH;
+          sepZ = (sepZ / sepLen) * moveSpeed * SEPARATION_STRENGTH;
+        }
+      }
+
+      // Blend pursuit + separation
+      let nx = pursuitX + sepX;
+      let nz = pursuitZ + sepZ;
+
+      // Normalize lại để không chạy nhanh hơn moveSpeed
+      const blendLen = Math.sqrt(nx * nx + nz * nz);
+      if (blendLen > moveSpeed) {
+        nx = (nx / blendLen) * moveSpeed;
+        nz = (nz / blendLen) * moveSpeed;
+      }
 
       // Đang sidestep → xoay hướng di chuyển 90° để đi dọc tường
       if (sidestepFramesRef.current > 0) {
@@ -258,7 +302,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
         }
       }
 
-      // Anti-overlap: chặn với User hero + các npc monster khác
+      // Anti-overlap: chặn với User hero
       [nx, nz] = blockIfTooClose(
         NPCPos.x,
         NPCPos.z,
@@ -268,18 +312,6 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
         userheroPos.z,
         CHAR_BLOCK_RADIUS,
       );
-      for (const other of gameState.NPC) {
-        if (other === entry || other.hp <= 0) continue;
-        [nx, nz] = blockIfTooClose(
-          NPCPos.x,
-          NPCPos.z,
-          nx,
-          nz,
-          other.position.x,
-          other.position.z,
-          CHAR_BLOCK_RADIUS,
-        );
-      }
       rigidBodyRef.current.setLinvel({ x: nx, y: clampedY, z: nz }, true);
       setAnimation(animNames.run);
       entry.isAttacking = false;
@@ -319,7 +351,7 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
       <CapsuleCollider
         args={[capsuleHalfHeight, capsuleRadius]}
         position={[0, capsuleOffsetY, 0]}
-        collisionGroups={interactionGroups([0], [1])}
+        collisionGroups={interactionGroups([2], [0, 1])}
       />
       <group ref={characterRef}>
         <Character

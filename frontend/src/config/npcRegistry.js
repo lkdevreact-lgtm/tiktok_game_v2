@@ -22,7 +22,7 @@ export const NPC_REGISTRY = [
     scale: 10,
     damage: 0.5,
     moveSpeed: 20,
-    attackRange: 5,
+    attackRange: 12,
     // Collider
     capsuleHalfHeight: 8.3,
     capsuleRadius: 5.5,
@@ -45,7 +45,7 @@ export const NPC_REGISTRY = [
     scale: 10,
     damage: 0.8,
     moveSpeed: 18,
-    attackRange: 5,
+    attackRange: 12,
     // Collider
     capsuleHalfHeight: 8.3,
     capsuleRadius: 5.5,
