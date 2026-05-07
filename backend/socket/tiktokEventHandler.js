@@ -50,7 +50,7 @@ export function attachTikTokEvents(connection, username) {
 
   // ── Chat (comment) ──────────────────────────────────────
   connection.on("chat", (data) => {
-    console.log("[tiktok:chat] raw keys:", Object.keys(data));
+    // console.log("[tiktok:chat] raw keys:", Object.keys(data));
     const user = extractUser(data);
     io.emit("tiktok:chat", {
       type: "chat",
@@ -64,7 +64,7 @@ export function attachTikTokEvents(connection, username) {
 
   // ── Gift ────────────────────────────────────────────────
   connection.on("gift", (data) => {
-    console.log("[tiktok:gift] raw keys:", Object.keys(data));
+    // console.log("[tiktok:gift] raw keys:", Object.keys(data));
     // tiktok-live-connector gửi gift với repeatEnd = true khi streak kết thúc
     // hoặc gift loại 1 (non-streak) luôn có repeatEnd = true
     if (data.giftType === 1 && !data.repeatEnd) return;
