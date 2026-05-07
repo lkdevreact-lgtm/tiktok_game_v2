@@ -1,33 +1,44 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { BACKEND_URL } from "../utils/const";
 
+// Module-level singleton — chỉ tạo 1 socket duy nhất cho toàn app
+let _socket = null;
+
+function getSocket() {
+  if (!_socket) {
+    _socket = io(BACKEND_URL, {
+      transports: ["websocket", "polling"],
+      autoConnect: true,
+    });
+  }
+  return _socket;
+}
+
 /**
  * Hook quản lý kết nối Socket.IO tới backend.
- * Tự connect khi mount, disconnect khi unmount.
+ * Dùng module-level singleton → luôn trả về cùng 1 socket instance.
  *
  * @returns {{ socket: import('socket.io-client').Socket | null, connected: boolean }}
  */
 export function useSocket() {
-  const socketRef = useRef(null);
-  const [connected, setConnected] = useState(false);
+  const socket = getSocket();
+  const [connected, setConnected] = useState(() => socket?.connected ?? false);
 
   useEffect(() => {
-    const socket = io(BACKEND_URL, {
-      transports: ["websocket", "polling"],
-      autoConnect: true,
-    });
+    if (!socket) return;
 
-    socket.on("connect", () => setConnected(true));
-    socket.on("disconnect", () => setConnected(false));
+    const onConnect = () => setConnected(true);
+    const onDisconnect = () => setConnected(false);
 
-    socketRef.current = socket;
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
     };
-  }, []);
+  }, [socket]);
 
-  return { socket: socketRef.current, connected };
+  return { socket, connected };
 }

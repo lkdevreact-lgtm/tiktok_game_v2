@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
 const MAX_MESSAGES = 80;
+const DEDUP_WINDOW_MS = 500; // bỏ qua message trùng trong 500ms
 
 /**
  * Hook lắng nghe các sự kiện TikTok Live từ Socket.IO
  * và tích lũy messages cho LiveChatOverlay.
+ * Có deduplication để tránh hiển thị trùng lặp.
  *
  * @param {import('socket.io-client').Socket | null} socket
  * @returns {{ messages: Array }}
@@ -12,11 +14,33 @@ const MAX_MESSAGES = 80;
 export function useLiveChat(socket) {
   const [messages, setMessages] = useState([]);
   const idCounter = useRef(0);
+  // Dedup: lưu hash của message gần đây để phát hiện duplicate
+  const recentHashesRef = useRef(new Set());
 
   useEffect(() => {
     if (!socket) return;
 
+    /**
+     * Tạo hash đơn giản từ message để so sánh trùng lặp.
+     */
+    const hashMsg = (msg) => {
+      return `${msg.type}|${msg.username}|${msg.timestamp}|${msg.comment || ""}|${msg.giftId || ""}|${msg.giftName || ""}`;
+    };
+
     const push = (msg) => {
+      const hash = hashMsg(msg);
+
+      // Nếu message này đã xuất hiện trong DEDUP_WINDOW_MS → bỏ qua
+      if (recentHashesRef.current.has(hash)) {
+        return;
+      }
+
+      // Đánh dấu hash và tự xoá sau DEDUP_WINDOW_MS
+      recentHashesRef.current.add(hash);
+      setTimeout(() => {
+        recentHashesRef.current.delete(hash);
+      }, DEDUP_WINDOW_MS);
+
       idCounter.current += 1;
       setMessages((prev) => {
         const next = [...prev, { ...msg, _id: idCounter.current }];

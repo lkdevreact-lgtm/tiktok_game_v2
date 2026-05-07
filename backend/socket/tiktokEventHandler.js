@@ -33,15 +33,16 @@ function extractUser(data) {
   };
 }
 
-// Track connections that already have listeners attached to prevent duplicates
-const attachedConnections = new WeakSet();
+// Danh sách event names mà chúng ta gắn listener lên TikTok connection.
+// Dùng để removeAllListeners trước khi gắn mới → tránh duplicate.
+const MANAGED_EVENTS = ["chat", "gift", "like", "share", "follow", "member"];
 
 /**
  * Gắn event listeners lên TikTokLiveConnection,
  * broadcast tất cả sự kiện (chat, gift, like, share, follow, member)
  * tới tất cả clients qua Socket.IO.
  *
- * Sẽ skip nếu connection đã được gắn listeners rồi (tránh duplicate).
+ * Luôn xoá listeners cũ trước khi gắn mới → KHÔNG BAO GIỜ bị duplicate.
  *
  * @param {import('tiktok-live-connector').TikTokLiveConnection} connection
  * @param {string} username
@@ -53,12 +54,12 @@ export function attachTikTokEvents(connection, username) {
     return;
   }
 
-  // Nếu connection này đã được gắn listeners → skip để tránh duplicate
-  if (attachedConnections.has(connection)) {
-    console.log(`[tiktokEventHandler] events already attached for @${username}, skipping.`);
-    return;
+  // ⚡ XOÁ TẤT CẢ listeners cũ cho các events chúng ta quản lý
+  // → triệt để tránh duplicate dù hàm này bị gọi nhiều lần
+  for (const evt of MANAGED_EVENTS) {
+    connection.removeAllListeners(evt);
   }
-  attachedConnections.add(connection);
+  console.log(`[tiktokEventHandler] cleared old listeners, attaching fresh for @${username}`);
 
   // ── Chat (comment) ──────────────────────────────────────
   connection.on("chat", (data) => {
