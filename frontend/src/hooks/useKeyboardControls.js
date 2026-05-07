@@ -14,6 +14,7 @@ const KEY_MAP = {
   KeyF: "kickUp",
   KeyE: "hookPunch",
   Space: "jump",
+  KeyT: "teleport",
 };
 
 export const useKeyboardControls = () => {
@@ -27,6 +28,7 @@ export const useKeyboardControls = () => {
     kickUp: false,
     hookPunch: false,
     jump: false,
+    teleport: false,
   });
 
   useEffect(() => {

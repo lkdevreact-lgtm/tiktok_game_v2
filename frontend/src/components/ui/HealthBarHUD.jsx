@@ -128,6 +128,11 @@ const HealthBarHUD = () => {
           <kbd className="px-1.5 py-0.5 bg-blue-500/40 rounded text-white text-xs font-bold">Space</kbd>
           <span className="text-white/70 text-xs">Jump</span>
         </div>
+        <div className="w-px bg-white/20" />
+        <div className="flex items-center gap-1.5">
+          <kbd className="px-1.5 py-0.5 bg-cyan-500/40 rounded text-white text-xs font-bold">T</kbd>
+          <span className="text-white/70 text-xs">Teleport</span>
+        </div>
       </div>
 
       {/* Round counter + Settings button (always visible) */}
