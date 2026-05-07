@@ -11,7 +11,11 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 8888;
 
-app.use(cors());
+app.use(cors({
+  origin: true,           // reflect request origin → cho phép mọi domain
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+  credentials: true,
+}));
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
