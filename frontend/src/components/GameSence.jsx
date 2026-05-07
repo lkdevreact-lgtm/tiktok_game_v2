@@ -14,7 +14,7 @@ import { gameState, fullRestartAtom } from "../stores/gameStore";
 import { useAtom } from "jotai";
 import NPCMonster from "./NPCMonster";
 
-const NPC_SPAWN_INTERVAL = 15000;
+const NPC_SPAWN_INTERVAL = 150000;
 const NPC_SPAWN_MIN_DIST = 30;
 const NPC_SPAWN_MAX_DIST = 60;
 
@@ -128,14 +128,14 @@ const GameSence = ({ onReady }) => {
       />
       <Physics gravity={[0,-55,0]}>
         <CharacterController cameraControlsRef={controlsRef} />
-        {/* {npc.map((n) => (
+        {npc.map((n) => (
           <NPCMonster
             key={n.id}
             id={n.id}
             spawnPosition={n.spawnPosition}
             onDespawn={handleDespawn}
           />
-        ))}  */}
+        ))} 
         <RigidBody
           type="fixed"
           colliders="trimesh"

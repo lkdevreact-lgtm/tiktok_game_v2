@@ -10,8 +10,8 @@ const ChatMessage = ({ message }) => {
       return <ChatBubble msg={message} />;
     case "gift":
       return <GiftBubble msg={message} />;
-    case "like":
-      return <EventBubble msg={message} text="đã thả ❤️" color="text-pink-400" />;
+    // case "like":
+    //   return <EventBubble msg={message} text="đã thả ❤️" color="text-pink-400" />;
     case "share":
       return <EventBubble msg={message} text="đã chia sẻ livestream 🔗" color="text-blue-400" />;
     case "follow":
