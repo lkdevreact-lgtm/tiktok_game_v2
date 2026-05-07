@@ -87,7 +87,7 @@ const GameSence = ({ onReady }) => {
   }, [spawnRequests, setSpawnRequests, spawnNPC]);
 
   useEffect(() => {
-    const firstSpawn = setTimeout(spawnNPC, 500);
+    const firstSpawn = setTimeout(spawnNPC, 2500);
     const interval = setInterval(spawnNPC, NPC_SPAWN_INTERVAL);
     return () => {
       clearTimeout(firstSpawn);

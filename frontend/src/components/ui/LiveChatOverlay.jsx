@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useLiveChat } from "../../hooks/useLiveChat";
 import ChatMessage from "./chat/ChatMessage";
 import { IoChevronDown, IoChevronUp, IoChatbubbles } from "react-icons/io5";
@@ -10,6 +10,46 @@ const LiveChatOverlay = ({ socket }) => {
   const [autoScroll, setAutoScroll] = useState(true);
 
   const connected = !!socket?.connected;
+
+  // Drag state
+  const panelRef = useRef(null);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [initialized, setInitialized] = useState(false);
+  const dragging = useRef(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+
+  // Set initial position (bottom-right)
+  useEffect(() => {
+    if (initialized || !panelRef.current) return;
+    const rect = panelRef.current.getBoundingClientRect();
+    setPos({
+      x: window.innerWidth - rect.width - 16,
+      y: window.innerHeight - rect.height - 16,
+    });
+    setInitialized(true);
+  }, [initialized]);
+
+  // Drag handlers (chỉ kéo bằng header)
+  const onPointerDown = useCallback((e) => {
+    if (!panelRef.current) return;
+    dragging.current = true;
+    const rect = panelRef.current.getBoundingClientRect();
+    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.stopPropagation();
+  }, []);
+
+  const onPointerMove = useCallback((e) => {
+    if (!dragging.current) return;
+    setPos({
+      x: e.clientX - dragOffset.current.x,
+      y: e.clientY - dragOffset.current.y,
+    });
+  }, []);
+
+  const onPointerUp = useCallback(() => {
+    dragging.current = false;
+  }, []);
 
   // Auto-scroll khi có message mới
   useEffect(() => {
@@ -29,36 +69,53 @@ const LiveChatOverlay = ({ socket }) => {
   };
 
   return (
-    <div className="pointer-events-auto fixed bottom-4 right-4 z-[9999] flex flex-col w-80">
-      {/* Header */}
-      <button
-        type="button"
-        onClick={() => setCollapsed((v) => !v)}
-        className="flex items-center justify-between rounded-t-xl border border-white/10 bg-black/70 px-3 py-2 backdrop-blur-md transition hover:bg-black/80"
+    <div
+      ref={panelRef}
+      style={{
+        position: "fixed",
+        left: pos.x,
+        top: pos.y,
+        zIndex: 9999,
+        touchAction: "none",
+      }}
+      className="pointer-events-auto flex w-80 flex-col select-none"
+    >
+      {/* Header — drag handle */}
+      <div
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        style={{ cursor: dragging.current ? "grabbing" : "grab" }}
       >
-        <div className="flex items-center gap-2">
-          <IoChatbubbles className="text-pink-400" size={16} />
-          <span className="text-xs font-bold text-white tracking-wide">
-            TikTok Live Chat
-          </span>
-          {connected && (
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          className="flex w-full items-center justify-between rounded-t-xl border border-white/10 bg-black/70 px-3 py-2 backdrop-blur-md transition hover:bg-black/80"
+        >
+          <div className="flex items-center gap-2">
+            <IoChatbubbles className="text-pink-400" size={16} />
+            <span className="text-xs font-bold text-white tracking-wide">
+              TikTok Live Chat
             </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-slate-400">
-            {messages.length} msg
-          </span>
-          {collapsed ? (
-            <IoChevronUp className="text-slate-400" size={14} />
-          ) : (
-            <IoChevronDown className="text-slate-400" size={14} />
-          )}
-        </div>
-      </button>
+            {connected && (
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-slate-400">
+              {messages.length} msg
+            </span>
+            {collapsed ? (
+              <IoChevronUp className="text-slate-400" size={14} />
+            ) : (
+              <IoChevronDown className="text-slate-400" size={14} />
+            )}
+          </div>
+        </button>
+      </div>
 
       {/* Chat body */}
       {!collapsed && (
