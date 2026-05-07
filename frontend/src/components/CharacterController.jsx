@@ -10,6 +10,7 @@ import {
 import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import Character from "./ui/Character";
 import FloatingDamage from "./ui/FloatingDamage";
+import TeleportEffect from "./ui/TeleportEffect";
 import { Vector3 } from "three";
 import { useSetAtom, useAtomValue } from "jotai";
 import {
@@ -20,6 +21,7 @@ import {
   blockIfTooClose,
   CHAR_BLOCK_RADIUS,
   NPCHpAtom,
+  teleportCooldownAtom,
 } from "../stores/gameStore";
 import { getAnimLockMs } from "../lib/animConfig";
 
@@ -56,6 +58,9 @@ const USER_HERO_DAMAGE = { Punch: 1, Kick: 1, KickUp: 3, HookPunch: 3 };
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
 const RUN_SOUND_SRC = "/sound/sound_run.MP3";
 const HELLO_SOUND_SRC = "/sound/hello.mp3";
+const TELEPORT_SOUND_SRC = "/sound/teleport.mp3";
+const TELEPORT_DISTANCE = 40;       // Khoảng cách teleport (units)
+const TELEPORT_COOLDOWN = 20_000;   // 20 giây cooldown
 const USER_HERO_SPAWN = { x: -51.48, y: -2.26, z: 311.29 };
 
 const CharacterController = ({ cameraControlsRef }) => {
@@ -169,7 +174,13 @@ const CharacterController = ({ cameraControlsRef }) => {
     kickUp: false,
     hookPunch: false,
     jump: false,
+    teleport: false,
   });
+  const teleportCooldownRef = useRef(false);
+  const [teleportReady, setTeleportReady] = useState(true);
+  const teleportSoundRef = useRef(null);
+  const [teleportEffects, setTeleportEffects] = useState([]);
+  const teleportEffectIdRef = useRef(0);
   const hpRef = useRef(100);
   const isDead = useRef(false);
 
@@ -214,6 +225,7 @@ const CharacterController = ({ cameraControlsRef }) => {
   const setNPCHp = useSetAtom(NPCHpAtom);
   const setGameOver = useSetAtom(gameOverAtom);
   const setWinner = useSetAtom(winnerAtom);
+  const setTeleportCd = useSetAtom(teleportCooldownAtom);
   const gameOver = useAtomValue(gameOverAtom);
   const prevGameOver = useRef(false);
 
@@ -423,11 +435,60 @@ const CharacterController = ({ cameraControlsRef }) => {
       keys.current.kickUp && !prevKeys.current.kickUp;
     const justPressedHookPunch =
       keys.current.hookPunch && !prevKeys.current.hookPunch;
+    const justPressedTeleport =
+      keys.current.teleport && !prevKeys.current.teleport;
     prevKeys.current.jump = keys.current.jump;
     prevKeys.current.punch = keys.current.punch;
     prevKeys.current.kick = keys.current.kick;
     prevKeys.current.kickUp = keys.current.kickUp;
     prevKeys.current.hookPunch = keys.current.hookPunch;
+    prevKeys.current.teleport = keys.current.teleport;
+
+    // --- Teleport skill (T) ---
+    if (justPressedTeleport && !teleportCooldownRef.current && !isDead.current) {
+      const heading = headingRef.current;
+      const curPos = rigidBodyRef.current.translation();
+      const oldPos = { x: curPos.x, y: curPos.y, z: curPos.z };
+      const teleX = curPos.x + Math.sin(heading) * TELEPORT_DISTANCE;
+      const teleZ = curPos.z + Math.cos(heading) * TELEPORT_DISTANCE;
+      const newPos = { x: teleX, y: curPos.y, z: teleZ };
+      rigidBodyRef.current.setTranslation(
+        { x: teleX, y: curPos.y, z: teleZ },
+        true,
+      );
+      // Spawn hiệu ứng ở vị trí cũ + mới
+      const eid = teleportEffectIdRef.current++;
+      setTeleportEffects((prev) => [
+        ...prev,
+        { id: eid, position: oldPos },
+        { id: eid + 1000, position: newPos },
+      ]);
+      // Camera snap ngay vị trí mới
+      cameraInitRef.current = false;
+      // Sound
+      if (!teleportSoundRef.current) {
+        teleportSoundRef.current = new Audio(TELEPORT_SOUND_SRC);
+        teleportSoundRef.current.volume = 0.6;
+      }
+      teleportSoundRef.current.currentTime = 0;
+      teleportSoundRef.current.play().catch(() => { });
+      // Cooldown
+      teleportCooldownRef.current = true;
+      setTeleportReady(false);
+      // Đếm ngược hiển thị trên HUD (mỗi giây)
+      const totalSecs = TELEPORT_COOLDOWN / 1000;
+      setTeleportCd(totalSecs);
+      let remaining = totalSecs;
+      const cdInterval = setInterval(() => {
+        remaining--;
+        setTeleportCd(Math.max(0, remaining));
+        if (remaining <= 0) {
+          clearInterval(cdInterval);
+          teleportCooldownRef.current = false;
+          setTeleportReady(true);
+        }
+      }, 1000);
+    }
 
     const anyAttackLock =
       punchLock.current ||
@@ -833,6 +894,17 @@ const CharacterController = ({ cameraControlsRef }) => {
           damage={popup.damage}
           position={popup.position}
           onComplete={handleDamageComplete}
+        />
+      ))}
+
+      {/* Teleport effects */}
+      {teleportEffects.map((fx) => (
+        <TeleportEffect
+          key={fx.id}
+          position={fx.position}
+          onComplete={() =>
+            setTeleportEffects((prev) => prev.filter((e) => e.id !== fx.id))
+          }
         />
       ))}
     </>

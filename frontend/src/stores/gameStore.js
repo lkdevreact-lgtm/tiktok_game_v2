@@ -16,6 +16,9 @@ export const fullRestartAtom = atom(false); // triggers full game restart
 // Each entry: { npcId: string, count: number }
 export const spawnRequestAtom = atom([]);
 
+// Teleport skill cooldown (giây còn lại, 0 = sẵn sàng)
+export const teleportCooldownAtom = atom(0);
+
 // Tổng bán kính "cấm overlap" giữa 2 nhân vật (capsule radius ~1.3 mỗi bên)
 export const CHAR_BLOCK_RADIUS = 3;
 
