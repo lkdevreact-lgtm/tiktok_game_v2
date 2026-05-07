@@ -5,7 +5,8 @@ import { fetchTriggers } from "../api/triggers";
 
 /**
  * useTriggerEngine — Lắng nghe TikTok events qua Socket.IO,
- * kiểm tra trigger rules từ DB, và push spawn requests khi match.
+ * kiểm tra trigger rules từ DB, tích lũy counter theo threshold,
+ * và push spawn requests khi đủ ngưỡng.
  *
  * @param {import('socket.io-client').Socket | null} socket
  */
@@ -13,6 +14,9 @@ export function useTriggerEngine(socket) {
   const setSpawnRequests = useSetAtom(spawnRequestAtom);
   const triggersRef = useRef([]);
   const loadedRef = useRef(false);
+
+  // Counter tích lũy cho mỗi trigger: { [triggerId]: currentCount }
+  const countersRef = useRef({});
 
   // Load active triggers từ API khi mount
   useEffect(() => {
@@ -24,8 +28,11 @@ export function useTriggerEngine(socket) {
           // Chỉ giữ triggers đang active
           triggersRef.current = (data || []).filter((t) => t.active);
           loadedRef.current = true;
+          // Reset counters
+          countersRef.current = {};
           console.log(
-            `[TriggerEngine] Loaded ${triggersRef.current.length} active triggers`,
+            `[TriggerEngine] Loaded ${triggersRef.current.length} active triggers:`,
+            triggersRef.current.map((t) => `${t.name} (${t.event_type}, threshold=${t.threshold})`),
           );
         }
       } catch (err) {
@@ -42,11 +49,20 @@ export function useTriggerEngine(socket) {
     if (!socket) return;
 
     /**
-     * Tìm tất cả triggers match với event và thực thi spawn.
+     * Tìm tất cả triggers match với event, tích lũy counter,
+     * và spawn NPC khi counter đạt threshold.
      */
     const processEvent = (eventType, data) => {
       if (!loadedRef.current) return;
 
+      console.log(`[TriggerEngine] Received event: ${eventType}`, {
+        comment: data.comment,
+        giftId: data.giftId,
+        giftName: data.giftName,
+        username: data.username,
+      });
+
+      // Tìm triggers match event type + điều kiện
       const matching = triggersRef.current.filter((t) => {
         if (t.event_type !== eventType) return false;
 
@@ -72,20 +88,53 @@ export function useTriggerEngine(socket) {
         return true;
       });
 
-      if (matching.length === 0) return;
+      if (matching.length === 0) {
+        console.log(`[TriggerEngine] No trigger matched for ${eventType}`);
+        return;
+      }
 
-      // Tạo spawn requests cho tất cả matching triggers
-      const requests = matching.map((t) => ({
-        npcId: t.npc_type, // npc_type trong DB = npcId trong registry (VD: "npc1", "npc2")
-        count: t.npc_count || 1,
-      }));
+      // Xử lý threshold cho từng trigger match
+      const spawnList = [];
 
-      console.log(
-        `[TriggerEngine] ${eventType} event matched ${requests.length} trigger(s):`,
-        requests,
-      );
+      for (const t of matching) {
+        const triggerId = t.id;
+        const threshold = t.threshold || 1;
 
-      setSpawnRequests((prev) => [...prev, ...requests]);
+        // Tăng counter
+        if (!countersRef.current[triggerId]) {
+          countersRef.current[triggerId] = 0;
+        }
+
+        // Like events có thể gửi `likeCount` (số like trong batch)
+        const increment = (eventType === "like" && data.likeCount)
+          ? data.likeCount
+          : 1;
+
+        countersRef.current[triggerId] += increment;
+
+        console.log(
+          `[TriggerEngine] Trigger "${t.name}" counter: ${countersRef.current[triggerId]}/${threshold}`,
+        );
+
+        // Kiểm tra đạt ngưỡng chưa
+        if (countersRef.current[triggerId] >= threshold) {
+          // Reset counter (giữ phần dư nếu vượt threshold)
+          countersRef.current[triggerId] -= threshold;
+
+          spawnList.push({
+            npcId: t.npc_type,
+            count: t.npc_count || 1,
+          });
+
+          console.log(
+            `[TriggerEngine] ✅ Trigger "${t.name}" FIRED! Spawning ${t.npc_count}× ${t.npc_type}`,
+          );
+        }
+      }
+
+      if (spawnList.length > 0) {
+        setSpawnRequests((prev) => [...prev, ...spawnList]);
+      }
     };
 
     const onChat = (data) => processEvent("comment", data);
@@ -100,12 +149,15 @@ export function useTriggerEngine(socket) {
     socket.on("tiktok:share", onShare);
     socket.on("tiktok:follow", onFollow);
 
+    console.log("[TriggerEngine] Socket listeners attached");
+
     return () => {
       socket.off("tiktok:chat", onChat);
       socket.off("tiktok:gift", onGift);
       socket.off("tiktok:like", onLike);
       socket.off("tiktok:share", onShare);
       socket.off("tiktok:follow", onFollow);
+      console.log("[TriggerEngine] Socket listeners removed");
     };
   }, [socket, setSpawnRequests]);
 }

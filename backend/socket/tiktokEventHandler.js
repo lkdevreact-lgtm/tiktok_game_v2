@@ -76,22 +76,34 @@ export function attachTikTokEvents(connection, username) {
 
   // ── Gift ────────────────────────────────────────────────
   connection.on("gift", (data) => {
-    // console.log("[tiktok:gift] raw keys:", Object.keys(data));
+    console.log("[tiktok:gift] raw data:", JSON.stringify({
+      giftId: data.giftId,
+      giftName: data.giftName,
+      describe: data.describe,
+      gift_name: data.gift_name,
+      giftType: data.giftType,
+      repeatEnd: data.repeatEnd,
+      repeatCount: data.repeatCount,
+      diamondCount: data.diamondCount,
+    }));
     // tiktok-live-connector gửi gift với repeatEnd = true khi streak kết thúc
     // hoặc gift loại 1 (non-streak) luôn có repeatEnd = true
     if (data.giftType === 1 && !data.repeatEnd) return;
 
     const user = extractUser(data);
+    const giftName = data.giftName || data.gift_name || data.describe || data.giftDetails?.giftName || "Gift";
+    const giftPicture = data.giftPictureUrl || data.giftDetails?.giftPictureUrl || data.image?.url_list?.[0] || data.image?.urlList?.[0] || "";
+
     io.emit("tiktok:gift", {
       type: "gift",
       username: user.username,
       nickname: user.nickname,
       profilePictureUrl: user.profilePictureUrl,
       giftId: data.giftId,
-      giftName: data.giftName || data.describe || "Gift",
-      giftPictureUrl: data.giftPictureUrl || data.image?.url_list?.[0] || "",
-      diamondCount: data.diamondCount,
-      repeatCount: data.repeatCount || 1,
+      giftName,
+      giftPictureUrl: giftPicture,
+      diamondCount: data.diamondCount || data.diamond_count || 0,
+      repeatCount: data.repeatCount || data.repeat_count || 1,
       timestamp: Date.now(),
     });
   });
@@ -104,6 +116,7 @@ export function attachTikTokEvents(connection, username) {
       username: user.username,
       nickname: user.nickname,
       profilePictureUrl: user.profilePictureUrl,
+      likeCount: data.likeCount || data.like_count || 1,
       timestamp: Date.now(),
     });
   });

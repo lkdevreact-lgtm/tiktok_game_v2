@@ -48,26 +48,22 @@ const GiftBubble = ({ msg }) => (
   <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-2 py-1.5">
     <ChatAvatar src={msg.profilePictureUrl} alt={msg.nickname} />
     <div className="min-w-0 flex-1">
-      <div className="flex items-baseline gap-1.5">
-        <span className="truncate text-xs font-bold text-amber-300">
-          {msg.nickname}
-        </span>
-        <span className="shrink-0 text-[10px] text-slate-500">
-          @{msg.username}
-        </span>
-      </div>
-      <div className="mt-0.5 flex items-center gap-1.5 text-xs">
-        <span className="text-amber-200">
-          🎁 Tặng {msg.repeatCount > 1 ? `x${msg.repeatCount} ` : ""}
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <span className="font-bold text-amber-300">{msg.nickname}</span>
+        <span className="text-amber-200">đã tặng</span>
+        <span className="font-semibold text-amber-100">
+          x{msg.repeatCount || 1}
         </span>
         {msg.giftPictureUrl && (
           <img
             src={msg.giftPictureUrl}
             alt={msg.giftName}
-            className="h-4 w-4 object-contain"
+            className="h-5 w-5 object-contain"
           />
         )}
-        <span className="font-semibold text-amber-100">{msg.giftName}</span>
+        <span className="font-bold text-amber-100">
+          {msg.giftName || "Gift"}
+        </span>
         {msg.diamondCount > 0 && (
           <span className="text-[10px] text-amber-400/70">
             ({msg.diamondCount}💎)
