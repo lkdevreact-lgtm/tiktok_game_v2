@@ -33,8 +33,31 @@ function extractUser(data) {
   };
 }
 
+// ── Gift Dedup ─────────────────────────────────────────────
+// Lưu trữ gift đã emit, dùng Map<hash, timestamp> thay vì Set + setTimeout
+// để tránh race condition và đảm bảo cleanup đúng.
+const GIFT_DEDUP_MS = 10_000; // 10 giây
+const _emittedGifts = new Map();
+
+function isGiftDuplicate(username, giftId) {
+  const hash = `${username}|${giftId}`;
+  const now = Date.now();
+
+  // Cleanup các entry cũ mỗi lần check
+  for (const [key, ts] of _emittedGifts) {
+    if (now - ts > GIFT_DEDUP_MS) _emittedGifts.delete(key);
+  }
+
+  if (_emittedGifts.has(hash)) {
+    console.log("[tiktok:gift] DUPLICATE blocked:", hash);
+    return true;
+  }
+
+  _emittedGifts.set(hash, now);
+  return false;
+}
+
 // Danh sách event names mà chúng ta gắn listener lên TikTok connection.
-// Dùng để removeAllListeners trước khi gắn mới → tránh duplicate.
 const MANAGED_EVENTS = ["chat", "gift", "like", "share", "follow", "member"];
 
 /**
@@ -55,7 +78,6 @@ export function attachTikTokEvents(connection, username) {
   }
 
   // ⚡ XOÁ TẤT CẢ listeners cũ cho các events chúng ta quản lý
-  // → triệt để tránh duplicate dù hàm này bị gọi nhiều lần
   for (const evt of MANAGED_EVENTS) {
     connection.removeAllListeners(evt);
   }
@@ -63,7 +85,6 @@ export function attachTikTokEvents(connection, username) {
 
   // ── Chat (comment) ──────────────────────────────────────
   connection.on("chat", (data) => {
-    // console.log("[tiktok:chat] raw keys:", Object.keys(data));
     const user = extractUser(data);
     io.emit("tiktok:chat", {
       type: "chat",
@@ -77,23 +98,26 @@ export function attachTikTokEvents(connection, username) {
 
   // ── Gift ────────────────────────────────────────────────
   connection.on("gift", (data) => {
-    console.log("[tiktok:gift] raw data:", JSON.stringify({
-      giftId: data.giftId,
-      giftName: data.giftName,
-      describe: data.describe,
-      gift_name: data.gift_name,
-      giftType: data.giftType,
-      repeatEnd: data.repeatEnd,
-      repeatCount: data.repeatCount,
-      diamondCount: data.diamondCount,
-    }));
-    // tiktok-live-connector gửi gift với repeatEnd = true khi streak kết thúc
-    // hoặc gift loại 1 (non-streak) luôn có repeatEnd = true
+    // Log toàn bộ keys có sẵn lần đầu để debug
+    console.log("[tiktok:gift] ALL KEYS:", Object.keys(data).join(", "));
+    console.log("[tiktok:gift] giftType=%s repeatEnd=%s repeatCount=%s giftId=%s giftName=%s msgId=%s",
+      data.giftType, data.repeatEnd, data.repeatCount, data.giftId,
+      data.giftName || data.describe || data.gift_name, data.msgId);
+
+    // Chỉ xử lý streak gift khi repeatEnd = true
     if (data.giftType === 1 && !data.repeatEnd) return;
 
     const user = extractUser(data);
-    const giftName = data.giftName || data.gift_name || data.describe || data.giftDetails?.giftName || "Gift";
-    const giftPicture = data.giftPictureUrl || data.giftDetails?.giftPictureUrl || data.image?.url_list?.[0] || data.image?.urlList?.[0] || "";
+
+    // ⚡ DEDUP: block duplicate gift event (tiktok-live-connector fire 2 lần)
+    if (isGiftDuplicate(user.username, data.giftId)) return;
+
+    const giftName = data.giftName || data.gift_name || data.describe ||
+                     data.giftDetails?.giftName || "Gift";
+    const giftPicture = data.giftPictureUrl ||
+                        data.giftDetails?.giftPictureUrl ||
+                        data.image?.url_list?.[0] ||
+                        data.image?.urlList?.[0] || "";
 
     io.emit("tiktok:gift", {
       type: "gift",
