@@ -18,9 +18,9 @@ export const NPC_REGISTRY = [
     id: "npc1",
     label: "John",
     modelPath: "models/character/NPC1.glb",
-    hp: 15,
+    hp: 10,
     scale: 10,
-    damage: 0.5,
+    damage: 0.3,
     moveSpeed: 20,
     attackRange: 10,
     // Collider
@@ -41,9 +41,9 @@ export const NPC_REGISTRY = [
     id: "npc2",
     label: "Shadow",
     modelPath: "models/character/NPC2.glb",
-    hp: 25,
+    hp: 15,
     scale: 10,
-    damage: 0.8,
+    damage: 0.5,
     moveSpeed: 18,
     attackRange: 12,
     // Collider

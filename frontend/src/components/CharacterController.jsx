@@ -742,7 +742,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       const dz = pos.z - entry.position.z;
       if (Math.sqrt(dx * dx + dz * dz) < ATTACK_RANGE) {
         entry.hitDealt = true;
-        takeDamage(0.5);
+        takeDamage(entry.damage ?? 0.5);
         // Stagger animation — chỉ trigger khi không đang attack/jump/đã stagger
         if (!hitReactionLock.current && !jumpLock.current && !punchLock.current
           && !kickLock.current && !kickUpLock.current && !hookPunchLock.current
