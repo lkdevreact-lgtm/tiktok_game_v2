@@ -16,8 +16,7 @@ const SettingsModal = ({ open, onClose }) => {
 
   if (!open) return null;
 
-  const ActiveComponent =
-    TABS.find((t) => t.id === activeTab)?.Component || (() => null);
+  const ActiveComponent = TABS.find((t) => t.id === activeTab)?.Component;
 
   return (
     <div
@@ -63,7 +62,7 @@ const SettingsModal = ({ open, onClose }) => {
           </nav>
 
           <section className="min-h-0 flex-1 overflow-hidden p-4">
-            <ActiveComponent />
+            {ActiveComponent ? <ActiveComponent /> : null}
           </section>
         </div>
       </div>

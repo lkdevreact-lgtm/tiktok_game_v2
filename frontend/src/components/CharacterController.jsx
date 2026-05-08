@@ -38,7 +38,7 @@ const CAMERA_MIN_DISTANCE = 5;     // Khoảng cách tối thiểu khi va chạm
 const TURN_SPEED = 3.0;            // Tốc độ quay khi nhấn A/D (radian/giây)
 const HEADING_LERP = 0.18;         // Hệ số lerp giữa heading hiện tại và target — nhỏ = quay mượt hơn
 const ATTACK_LUNGE_SPEED = 6;
-const USER_HERO_MODEL = "models/character/Neptune.glb";
+const USER_HERO_MODEL = "models/character/NeptunedNew.glb";
 const USER_HERO_ONE_SHOTS = [
   "Punch",
   "Kick",
