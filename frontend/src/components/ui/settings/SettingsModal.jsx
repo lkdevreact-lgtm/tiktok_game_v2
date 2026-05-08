@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { IoClose } from "react-icons/io5";
-import { FaGift, FaBolt } from "react-icons/fa";
+import { FaGift, FaBolt, FaUserNinja } from "react-icons/fa";
 import GiftsTab from "./GiftsTab";
 import TriggersTab from "./TriggersTab";
+import CharacterTab from "./CharacterTab";
 
 const TABS = [
   { id: "gifts", label: "Gifts", icon: FaGift, Component: GiftsTab },
   { id: "triggers", label: "Triggers", icon: FaBolt, Component: TriggersTab },
+  { id: "character", label: "Character", icon: FaUserNinja, Component: CharacterTab },
 ];
 
 const SettingsModal = ({ open, onClose }) => {
@@ -50,8 +52,8 @@ const SettingsModal = ({ open, onClose }) => {
                   type="button"
                   onClick={() => setActiveTab(id)}
                   className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${isActive
-                      ? "bg-blue-600/20 text-blue-200"
-                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    ? "bg-blue-600/20 text-blue-200"
+                    : "text-slate-400 hover:bg-white/5 hover:text-white"
                     }`}
                 >
                   <Icon /> {label}

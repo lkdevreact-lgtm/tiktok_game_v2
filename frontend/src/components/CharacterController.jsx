@@ -23,9 +23,10 @@ import {
   NPCHpAtom,
   teleportCooldownAtom,
 } from "../stores/gameStore";
+import { userHeroConfigAtom } from "../stores/characterStore";
 import { getAnimLockMs } from "../lib/animConfig";
 
-const MOVE_SPEED = 30;
+
 // --- Third-person camera (offset cố định theo HƯỚNG nhân vật, không theo world) ---
 const CAMERA_DISTANCE = 50;        // Khoảng cách camera phía sau lưng nhân vật
 const CAMERA_HEIGHT = 18;          // Camera cao hơn nhân vật bao nhiêu
@@ -36,10 +37,8 @@ const CAMERA_MIN_DISTANCE = 5;     // Khoảng cách tối thiểu khi va chạm
 // --- Steering controls (A/D quay, W/S tiến/lật-180-tiến) ---
 const TURN_SPEED = 3.0;            // Tốc độ quay khi nhấn A/D (radian/giây)
 const HEADING_LERP = 0.18;         // Hệ số lerp giữa heading hiện tại và target — nhỏ = quay mượt hơn
-const JUMP_FORCE = 25;
 const ATTACK_LUNGE_SPEED = 6;
 const USER_HERO_MODEL = "models/character/Neptune.glb";
-const ATTACK_RANGE = 12;
 const USER_HERO_ONE_SHOTS = [
   "Punch",
   "Kick",
@@ -54,7 +53,7 @@ const USER_HERO_ONE_SHOTS = [
 // Camera-in-front detection: dot product of (cam→char dir) and char forward.
 // > 0.7 ≈ camera is within ~45° cone in front of the character.
 const FRONT_VIEW_DOT_THRESHOLD = 0.7;
-const USER_HERO_DAMAGE = { Punch: 1, Kick: 1, KickUp: 3, HookPunch: 3 };
+
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
 const RUN_SOUND_SRC = "/sound/sound_run.MP3";
 const HELLO_SOUND_SRC = "/sound/hello.mp3";
@@ -71,6 +70,13 @@ const CharacterController = ({ cameraControlsRef }) => {
   const damageIdRef = useRef(0);
   const keys = useKeyboardControls();
   const { world, rapier } = useRapier();
+
+  // ── Runtime config from Settings → Character → Hero (persisted to localStorage) ──
+  const heroConfig = useAtomValue(userHeroConfigAtom);
+  const MOVE_SPEED = heroConfig.moveSpeed;
+  const JUMP_FORCE = heroConfig.jumpForce;
+  const ATTACK_RANGE = heroConfig.attackRange;
+  const USER_HERO_DAMAGE = heroConfig.damage;
 
   // Read animation clip durations from the hero model so action lock timers
   // automatically match each clip's natural length (× any timeScale override).

@@ -15,6 +15,7 @@ import {
   blockIfTooClose,
   CHAR_BLOCK_RADIUS,
 } from "../stores/gameStore";
+import { npcRegistryAtom } from "../stores/characterStore";
 import { getNpcById, getDefaultNpc } from "../config/npcRegistry";
 
 const PUNCH_DURATION = 900;
@@ -35,8 +36,11 @@ const WANDER_ARRIVE_DIST = 5;         // close enough to wander target
 const WANDER_TIMEOUT_FRAMES = 180;    // ~3s @ 60fps — give up on wander
 
 const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
-  // Lấy config từ NPC Registry theo npcId, fallback về NPC mặc định
-  const npcConfig = getNpcById(npcId) || getDefaultNpc();
+  // Merge: editable fields từ atom (localStorage), non-editable từ static registry
+  const npcRegistry = useAtomValue(npcRegistryAtom);
+  const atomCfg = npcRegistry.find((n) => n.id === npcId);
+  const staticCfg = getNpcById(npcId) || getDefaultNpc();
+  const npcConfig = { ...staticCfg, ...atomCfg };
 
   const rigidBodyRef = useRef();
   const characterRef = useRef();
@@ -85,6 +89,13 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
       audio.play().catch(() => { });
     }
   }, []);
+
+  // Sync editable fields vào entry đang sống khi settings thay đổi
+  useEffect(() => {
+    if (entryRef.current) {
+      entryRef.current.damage = damage;
+    }
+  }, [damage]);
 
   useEffect(() => {
     const entry = {
