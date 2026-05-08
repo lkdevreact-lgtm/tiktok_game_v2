@@ -4,6 +4,7 @@ import {
   CapsuleCollider,
   RigidBody,
   interactionGroups,
+  useRapier,
 } from "@react-three/rapier";
 import Character from "./ui/Character";
 import TargetArrow from "./ui/TargetArrow";
@@ -14,6 +15,7 @@ import {
   blockIfTooClose,
   CHAR_BLOCK_RADIUS,
 } from "../stores/gameStore";
+import { npcRegistryAtom } from "../stores/characterStore";
 import { getNpcById, getDefaultNpc } from "../config/npcRegistry";
 
 const PUNCH_DURATION = 900;
@@ -21,14 +23,24 @@ const PUNCH_COOLDOWN = 1500;
 const DIE_ANIM_HOLD = 1500; // giữ animation Die trước khi fade
 const FADE_DURATION = 2000; // thời gian fade opacity
 
-// Stuck detection: nếu NPC monster định di chuyển nhưng vận tốc gần 0 → đang đâm tường
+// Stuck detection
 const STUCK_SPEED_THRESHOLD = 0.5;
 const STUCK_FRAME_THRESHOLD = 20; // ~0.33s @ 60fps
-const SIDESTEP_FRAMES = 45; // né 90° trong ~0.75s rồi thử lại
+
+// Wall-avoidance raycasting
+const WALL_RAY_DIST = 14;            // how far ahead to detect walls
+const WALL_STEER_ANGLE = Math.PI / 3; // max steering angle (~60°)
+const ESCAPE_RAY_COUNT = 12;          // directions to scan when stuck
+const ESCAPE_RAY_DIST = 30;           // max scan distance for escape
+const WANDER_ARRIVE_DIST = 5;         // close enough to wander target
+const WANDER_TIMEOUT_FRAMES = 180;    // ~3s @ 60fps — give up on wander
 
 const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
-  // Lấy config từ NPC Registry theo npcId, fallback về NPC mặc định
-  const npcConfig = getNpcById(npcId) || getDefaultNpc();
+  // Merge: editable fields từ atom (localStorage), non-editable từ static registry
+  const npcRegistry = useAtomValue(npcRegistryAtom);
+  const atomCfg = npcRegistry.find((n) => n.id === npcId);
+  const staticCfg = getNpcById(npcId) || getDefaultNpc();
+  const npcConfig = { ...staticCfg, ...atomCfg };
 
   const rigidBodyRef = useRef();
   const characterRef = useRef();
@@ -48,8 +60,10 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
   const [opacity, setOpacity] = useState(1);
   const [isTargeted, setIsTargeted] = useState(false);
   const stuckFramesRef = useRef(0);
-  const sidestepDirRef = useRef(0); // 0 = off, +1/-1 = hướng né
-  const sidestepFramesRef = useRef(0);
+  const wanderTargetRef = useRef(null); // {x, z} escape waypoint
+  const wanderFramesRef = useRef(0);
+
+  const { world, rapier } = useRapier();
 
   // Destructure config values for easy access
   const {
@@ -75,6 +89,13 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
       audio.play().catch(() => { });
     }
   }, []);
+
+  // Sync editable fields vào entry đang sống khi settings thay đổi
+  useEffect(() => {
+    if (entryRef.current) {
+      entryRef.current.damage = damage;
+    }
+  }, [damage]);
 
   useEffect(() => {
     const entry = {
@@ -125,8 +146,8 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
       entry.attackType = null;
       entry.hitDealt = false;
       stuckFramesRef.current = 0;
-      sidestepDirRef.current = 0;
-      sidestepFramesRef.current = 0;
+      wanderTargetRef.current = null;
+      wanderFramesRef.current = 0;
       setOpacity(1);
       setAnimation(animNames.idle);
       prevGameOverRef.current = false;
@@ -219,35 +240,129 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
     }
 
     if (dist > attackRange && !punchLock.current) {
-      // Stuck detection: setLinvel set velocity trực tiếp, nhưng khi va tường
-      // physics engine xoá component theo normal → linvel().xz sẽ ~0.
+      // ── Helper: cast horizontal ray from NPC center ──
+      const rayY = NPCPos.y + capsuleOffsetY;
+      const castRay = (angle, maxDist) => {
+        if (!world || !rapier) return maxDist;
+        const ray = new rapier.Ray(
+          { x: NPCPos.x, y: rayY, z: NPCPos.z },
+          { x: Math.sin(angle), y: 0, z: Math.cos(angle) },
+        );
+        const hit = world.castRay(
+          ray, maxDist, true, undefined,
+          interactionGroups([2], [1]),
+          rigidBodyRef.current?.collider(0),
+          rigidBodyRef.current,
+        );
+        return hit ? hit.timeOfImpact : maxDist;
+      };
+
+      // ── Stuck detection ──
       const horizontalSpeed = Math.sqrt(
         velocity.x * velocity.x + velocity.z * velocity.z,
       );
       if (horizontalSpeed < STUCK_SPEED_THRESHOLD) {
         stuckFramesRef.current++;
-      } else if (sidestepFramesRef.current === 0) {
+      } else if (!wanderTargetRef.current) {
         stuckFramesRef.current = 0;
       }
 
-      // Kích hoạt sidestep khi stuck đủ lâu
-      if (
-        sidestepDirRef.current === 0 &&
-        stuckFramesRef.current > STUCK_FRAME_THRESHOLD
-      ) {
-        sidestepDirRef.current = Math.random() > 0.5 ? 1 : -1;
-        sidestepFramesRef.current = SIDESTEP_FRAMES;
+      // ── Wander mode: navigate to escape waypoint ──
+      if (wanderTargetRef.current) {
+        wanderFramesRef.current++;
+        const wdx = wanderTargetRef.current.x - NPCPos.x;
+        const wdz = wanderTargetRef.current.z - NPCPos.z;
+        const wDist = Math.sqrt(wdx * wdx + wdz * wdz);
+
+        if (wDist < WANDER_ARRIVE_DIST || wanderFramesRef.current > WANDER_TIMEOUT_FRAMES) {
+          // Arrived or timeout → resume pursuit
+          wanderTargetRef.current = null;
+          wanderFramesRef.current = 0;
+          stuckFramesRef.current = 0;
+        } else {
+          // Still stuck during wander → pick new escape
+          if (stuckFramesRef.current > STUCK_FRAME_THRESHOLD) {
+            wanderTargetRef.current = null;
+            wanderFramesRef.current = 0;
+            // stuckFramesRef stays high → will trigger escape below
+          } else {
+            let wnx = (wdx / wDist) * moveSpeed;
+            let wnz = (wdz / wDist) * moveSpeed;
+            [wnx, wnz] = blockIfTooClose(
+              NPCPos.x, NPCPos.z, wnx, wnz,
+              userheroPos.x, userheroPos.z, CHAR_BLOCK_RADIUS,
+            );
+            if (characterRef.current) {
+              characterRef.current.rotation.y = Math.atan2(wdx, wdz);
+            }
+            rigidBodyRef.current.setLinvel({ x: wnx, y: clampedY, z: wnz }, true);
+            setAnimation(animNames.run);
+            entry.isAttacking = false;
+            entry.attackType = null;
+            return;
+          }
+        }
       }
 
-      // ── Pursuit vector (hướng về hero) ──
-      let pursuitX = (dx / dist) * moveSpeed;
-      let pursuitZ = (dz / dist) * moveSpeed;
+      // ── Escape: cast rays in 12 directions to find best open path ──
+      if (stuckFramesRef.current > STUCK_FRAME_THRESHOLD) {
+        const pursuitAngle = Math.atan2(dx, dz);
+        let bestAngle = pursuitAngle;
+        let bestScore = -1;
+
+        for (let i = 0; i < ESCAPE_RAY_COUNT; i++) {
+          const angle = (i / ESCAPE_RAY_COUNT) * Math.PI * 2;
+          const hitDist = castRay(angle, ESCAPE_RAY_DIST);
+          // Prefer directions toward player + most open space
+          const toPlayerDot = Math.cos(angle - pursuitAngle);
+          const score = hitDist * (1 + Math.max(0, toPlayerDot) * 0.3);
+          if (score > bestScore) {
+            bestScore = score;
+            bestAngle = angle;
+          }
+        }
+
+        const wanderDist = Math.min(bestScore * 0.6, 20);
+        if (wanderDist > 3) {
+          wanderTargetRef.current = {
+            x: NPCPos.x + Math.sin(bestAngle) * wanderDist,
+            z: NPCPos.z + Math.cos(bestAngle) * wanderDist,
+          };
+          wanderFramesRef.current = 0;
+        }
+        stuckFramesRef.current = 0;
+        return;
+      }
+
+      // ── Proactive wall steering with raycasts ──
+      const pursuitAngle = Math.atan2(dx, dz);
+      const fwdDist = castRay(pursuitAngle, WALL_RAY_DIST);
+
+      let pursuitX, pursuitZ;
+      if (fwdDist < WALL_RAY_DIST * 0.6) {
+        // Wall ahead — check left vs right to choose best steer direction
+        const leftDist = castRay(pursuitAngle + Math.PI / 5, WALL_RAY_DIST);
+        const rightDist = castRay(pursuitAngle - Math.PI / 5, WALL_RAY_DIST);
+        const leftDist2 = castRay(pursuitAngle + Math.PI / 3, WALL_RAY_DIST);
+        const rightDist2 = castRay(pursuitAngle - Math.PI / 3, WALL_RAY_DIST);
+
+        const leftOpen = leftDist + leftDist2;
+        const rightOpen = rightDist + rightDist2;
+        const steerSign = leftOpen >= rightOpen ? 1 : -1;
+        // Stronger steer when wall is closer
+        const closeness = 1 - fwdDist / (WALL_RAY_DIST * 0.6);
+        const steerAngle = pursuitAngle + steerSign * WALL_STEER_ANGLE * (0.5 + closeness);
+        pursuitX = Math.sin(steerAngle) * moveSpeed;
+        pursuitZ = Math.cos(steerAngle) * moveSpeed;
+      } else {
+        // No wall — direct pursuit
+        pursuitX = (dx / dist) * moveSpeed;
+        pursuitZ = (dz / dist) * moveSpeed;
+      }
 
       // ── Separation steering (tránh NPC khác) ──
-      // Mỗi NPC gần hơn SEPARATION_RADIUS sẽ đẩy NPC này ra xa.
-      // Lực đẩy tỷ lệ nghịch bình phương với khoảng cách → rất mạnh khi gần.
       const SEPARATION_RADIUS = 15;
-      const SEPARATION_STRENGTH = 1.5; // mạnh hơn pursuit → NPC ưu tiên tránh nhau
+      const SEPARATION_STRENGTH = 1.5;
       let sepX = 0;
       let sepZ = 0;
       let sepCount = 0;
@@ -258,9 +373,8 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
         const oz = NPCPos.z - other.position.z;
         const oDist = Math.sqrt(ox * ox + oz * oz);
         if (oDist > 0.01 && oDist < SEPARATION_RADIUS) {
-          // Lực đẩy mạnh: bình phương weight → gần nhau = đẩy rất mạnh
           const weight = (1 - oDist / SEPARATION_RADIUS);
-          const w2 = weight * weight; // squared falloff
+          const w2 = weight * weight;
           sepX += (ox / oDist) * w2;
           sepZ += (oz / oDist) * w2;
           sepCount++;
@@ -279,38 +393,17 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
       let nx = pursuitX + sepX;
       let nz = pursuitZ + sepZ;
 
-      // Normalize lại để không chạy nhanh hơn moveSpeed
+      // Normalize — không chạy nhanh hơn moveSpeed
       const blendLen = Math.sqrt(nx * nx + nz * nz);
       if (blendLen > moveSpeed) {
         nx = (nx / blendLen) * moveSpeed;
         nz = (nz / blendLen) * moveSpeed;
       }
 
-      // Đang sidestep → xoay hướng di chuyển 90° để đi dọc tường
-      if (sidestepFramesRef.current > 0) {
-        const angle = sidestepDirRef.current * (Math.PI / 2);
-        const cs = Math.cos(angle);
-        const sn = Math.sin(angle);
-        const rx = nx * cs - nz * sn;
-        const rz = nx * sn + nz * cs;
-        nx = rx;
-        nz = rz;
-        sidestepFramesRef.current--;
-        if (sidestepFramesRef.current <= 0) {
-          sidestepDirRef.current = 0;
-          stuckFramesRef.current = 0;
-        }
-      }
-
       // Anti-overlap: chặn với User hero
       [nx, nz] = blockIfTooClose(
-        NPCPos.x,
-        NPCPos.z,
-        nx,
-        nz,
-        userheroPos.x,
-        userheroPos.z,
-        CHAR_BLOCK_RADIUS,
+        NPCPos.x, NPCPos.z, nx, nz,
+        userheroPos.x, userheroPos.z, CHAR_BLOCK_RADIUS,
       );
       rigidBodyRef.current.setLinvel({ x: nx, y: clampedY, z: nz }, true);
       setAnimation(animNames.run);
@@ -320,8 +413,8 @@ const NPCMonster = ({ id, spawnPosition, onDespawn, npcId }) => {
       rigidBodyRef.current.setLinvel({ x: 0, y: clampedY, z: 0 }, true);
       punchLock.current = true;
       stuckFramesRef.current = 0;
-      sidestepDirRef.current = 0;
-      sidestepFramesRef.current = 0;
+      wanderTargetRef.current = null;
+      wanderFramesRef.current = 0;
       setAnimation(animNames.attack);
       entry.isAttacking = true;
       entry.attackType = animNames.attack;

@@ -11,6 +11,7 @@ import { useKeyboardControls } from "../hooks/useKeyboardControls";
 import Character from "./ui/Character";
 import FloatingDamage from "./ui/FloatingDamage";
 import TeleportEffect from "./ui/TeleportEffect";
+import JumpAOEEffect from "./ui/JumpAOEEffect";
 import { Vector3 } from "three";
 import { useSetAtom, useAtomValue } from "jotai";
 import {
@@ -22,10 +23,12 @@ import {
   CHAR_BLOCK_RADIUS,
   NPCHpAtom,
   teleportCooldownAtom,
+  jumpAOECooldownAtom,
 } from "../stores/gameStore";
+import { userHeroConfigAtom } from "../stores/characterStore";
 import { getAnimLockMs } from "../lib/animConfig";
 
-const MOVE_SPEED = 30;
+
 // --- Third-person camera (offset cố định theo HƯỚNG nhân vật, không theo world) ---
 const CAMERA_DISTANCE = 50;        // Khoảng cách camera phía sau lưng nhân vật
 const CAMERA_HEIGHT = 18;          // Camera cao hơn nhân vật bao nhiêu
@@ -36,29 +39,36 @@ const CAMERA_MIN_DISTANCE = 5;     // Khoảng cách tối thiểu khi va chạm
 // --- Steering controls (A/D quay, W/S tiến/lật-180-tiến) ---
 const TURN_SPEED = 3.0;            // Tốc độ quay khi nhấn A/D (radian/giây)
 const HEADING_LERP = 0.18;         // Hệ số lerp giữa heading hiện tại và target — nhỏ = quay mượt hơn
-const JUMP_FORCE = 25;
 const ATTACK_LUNGE_SPEED = 6;
-const USER_HERO_MODEL = "models/character/Neptune.glb";
-const ATTACK_RANGE = 12;
+const USER_HERO_MODEL = "models/character/NeptunedNew.glb";
 const USER_HERO_ONE_SHOTS = [
   "Punch",
   "Kick",
   "KickUp",
   "HookPunch",
   "Jump",
+  "JumpBackward",
+  "JumpAOE",
   "Die",
   "HitReaction",
   "Hello",
 ];
+const JUMP_AOE_RADIUS = 25;         // Bán kính sát thương AOE
+const JUMP_AOE_COOLDOWN = 15_000;   // 15 giây cooldown
+const JUMP_AOE_LAND_DELAY_MS = 600; // Delay trước khi đập xuống đất (sync với animation)
+// --- Screen shake config ---
+const SHAKE_DURATION = 0.6;         // Thời gian rung (giây)
+const SHAKE_INTENSITY = 3.0;        // Cường độ rung tối đa (units offset)
 
 // Camera-in-front detection: dot product of (cam→char dir) and char forward.
 // > 0.7 ≈ camera is within ~45° cone in front of the character.
 const FRONT_VIEW_DOT_THRESHOLD = 0.7;
-const USER_HERO_DAMAGE = { Punch: 1, Kick: 1, KickUp: 3, HookPunch: 3 };
+
 const PUNCH_SOUND_SRC = "/sound/sound_punch.mp3";
 const RUN_SOUND_SRC = "/sound/sound_run.MP3";
 const HELLO_SOUND_SRC = "/sound/hello.mp3";
 const TELEPORT_SOUND_SRC = "/sound/teleport.mp3";
+const AOE_SOUND_SRC = "/sound/sound_punch.mp3"; // Dùng tạm — thay bằng sound riêng nếu có
 const TELEPORT_DISTANCE = 40;       // Khoảng cách teleport (units)
 const TELEPORT_COOLDOWN = 20_000;   // 20 giây cooldown
 const USER_HERO_SPAWN = { x: -51.48, y: -2.26, z: 311.29 };
@@ -71,6 +81,13 @@ const CharacterController = ({ cameraControlsRef }) => {
   const damageIdRef = useRef(0);
   const keys = useKeyboardControls();
   const { world, rapier } = useRapier();
+
+  // ── Runtime config from Settings → Character → Hero (persisted to localStorage) ──
+  const heroConfig = useAtomValue(userHeroConfigAtom);
+  const MOVE_SPEED = heroConfig.moveSpeed;
+  const JUMP_FORCE = heroConfig.jumpForce;
+  const ATTACK_RANGE = heroConfig.attackRange;
+  const USER_HERO_DAMAGE = heroConfig.damage;
 
   // Read animation clip durations from the hero model so action lock timers
   // automatically match each clip's natural length (× any timeScale override).
@@ -85,6 +102,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       KickUp: getAnimLockMs(dur.KickUp, "KickUp"),
       HookPunch: getAnimLockMs(dur.HookPunch, "HookPunch"),
       Jump: getAnimLockMs(dur.Jump, "Jump"),
+      JumpBackward: getAnimLockMs(dur.JumpBackward || dur.Jump, "JumpBackward"),
+      JumpAOE: getAnimLockMs(dur.JumpAOE || 2.0, "JumpAOE"),
       HitReaction: getAnimLockMs(dur.HitReaction, "HitReaction"),
       Hello: getAnimLockMs(dur.Hello, "Hello"),
     };
@@ -97,6 +116,7 @@ const CharacterController = ({ cameraControlsRef }) => {
   const hookPunchLock = useRef(false);
   const hitReactionLock = useRef(false);
   const helloLock = useRef(false);
+  const jumpAOELock = useRef(false);
   const jumpTimer = useRef(null);
   const jumpImpulseTimer = useRef(null);
   const jumpImpulseApplied = useRef(false);
@@ -109,6 +129,14 @@ const CharacterController = ({ cameraControlsRef }) => {
   const hookPunchTimer = useRef(null);
   const hitReactionTimer = useRef(null);
   const helloTimer = useRef(null);
+  const jumpAOETimer = useRef(null);
+  const jumpAOEImpulseTimer = useRef(null);
+  const jumpAOECooldownRef = useRef(false);
+  const [jumpAOEEffects, setJumpAOEEffects] = useState([]);
+  const jumpAOEEffectIdRef = useRef(0);
+  const aoeSoundRef = useRef(null);
+  // Screen shake state (driven by remaining time, decays each frame)
+  const shakeTimeRef = useRef(0);
   // Front-view detection state (for Hello animation trigger)
   const wasViewingFrontRef = useRef(false);
   const tempCamPosRef = useRef(new Vector3());
@@ -173,6 +201,7 @@ const CharacterController = ({ cameraControlsRef }) => {
     kick: false,
     kickUp: false,
     hookPunch: false,
+    jumpAOE: false,
     jump: false,
     teleport: false,
   });
@@ -226,6 +255,7 @@ const CharacterController = ({ cameraControlsRef }) => {
   const setGameOver = useSetAtom(gameOverAtom);
   const setWinner = useSetAtom(winnerAtom);
   const setTeleportCd = useSetAtom(teleportCooldownAtom);
+  const setJumpAOECd = useSetAtom(jumpAOECooldownAtom);
   const gameOver = useAtomValue(gameOverAtom);
   const prevGameOver = useRef(false);
 
@@ -268,6 +298,8 @@ const CharacterController = ({ cameraControlsRef }) => {
       kickUpLock.current = false;
       hookPunchLock.current = false;
       hitReactionLock.current = false;
+      jumpAOELock.current = false;
+      jumpAOECooldownRef.current = false;
       helloLock.current = false;
       wasViewingFrontRef.current = false;
       clearTimeout(jumpTimer.current);
@@ -437,12 +469,15 @@ const CharacterController = ({ cameraControlsRef }) => {
       keys.current.hookPunch && !prevKeys.current.hookPunch;
     const justPressedTeleport =
       keys.current.teleport && !prevKeys.current.teleport;
+    const justPressedJumpAOE =
+      keys.current.jumpAOE && !prevKeys.current.jumpAOE;
     prevKeys.current.jump = keys.current.jump;
     prevKeys.current.punch = keys.current.punch;
     prevKeys.current.kick = keys.current.kick;
     prevKeys.current.kickUp = keys.current.kickUp;
     prevKeys.current.hookPunch = keys.current.hookPunch;
     prevKeys.current.teleport = keys.current.teleport;
+    prevKeys.current.jumpAOE = keys.current.jumpAOE;
 
     // --- Teleport skill (T) ---
     if (justPressedTeleport && !teleportCooldownRef.current && !isDead.current) {
@@ -490,12 +525,24 @@ const CharacterController = ({ cameraControlsRef }) => {
       }, 1000);
     }
 
+    // Early-cancel locks khi di chuyển — phải check TRƯỜC anyAttackLock
+    // để Run/Idle animation kick in ngay trong frame này.
+    if (hitReactionLock.current && isMoving) {
+      hitReactionLock.current = false;
+      clearTimeout(hitReactionTimer.current);
+    }
+    if (jumpAOELock.current && isMoving && Math.abs(velocity.y) < 1) {
+      jumpAOELock.current = false;
+      clearTimeout(jumpAOETimer.current);
+    }
+
     const anyAttackLock =
       punchLock.current ||
       kickLock.current ||
       kickUpLock.current ||
       hookPunchLock.current ||
-      hitReactionLock.current;
+      hitReactionLock.current ||
+      jumpAOELock.current;
 
     // --- Hello animation: detect when user orbits camera to face character ---
     // Chỉ check khi đang drag (user chủ động xoay camera). Lúc thả ra, camera
@@ -557,6 +604,7 @@ const CharacterController = ({ cameraControlsRef }) => {
         justPressedKick ||
         justPressedKickUp ||
         justPressedHookPunch ||
+        justPressedJumpAOE ||
         isMoving)
     ) {
       helloLock.current = false;
@@ -596,7 +644,8 @@ const CharacterController = ({ cameraControlsRef }) => {
     if (justPressedJump && !jumpLock.current && !hitReactionLock.current) {
       jumpLock.current = true;
       jumpImpulseApplied.current = false;
-      setAnimation("Jump");
+      const jumpAnim = moveDir < 0 ? "JumpBackward" : "Jump";
+      setAnimation(jumpAnim);
       gameState.userhero.isAttacking = false;
       gameState.userhero.attackType = null;
       // Delay lực nhảy 300ms để đồng bộ với animation (nhân vật cúi xuống trước rồi mới bật lên)
@@ -607,11 +656,11 @@ const CharacterController = ({ cameraControlsRef }) => {
           const curVel = rigidBodyRef.current.linvel();
           rigidBodyRef.current.setLinvel({ x: curVel.x, y: JUMP_FORCE, z: curVel.z }, true);
         }
-      }, 300);
+      }, 100);
       clearTimeout(jumpTimer.current);
       jumpTimer.current = setTimeout(() => {
         jumpLock.current = false;
-      }, lockMs.Jump);
+      }, lockMs[jumpAnim] || lockMs.Jump);
     } else if (
       justPressedPunch &&
       !anyAttackLock &&
@@ -685,14 +734,118 @@ const CharacterController = ({ cameraControlsRef }) => {
         gameState.userhero.isAttacking = false;
         gameState.userhero.attackType = null;
       }, lockMs.HookPunch);
+    } else if (
+      justPressedJumpAOE &&
+      !jumpAOELock.current &&
+      !jumpAOECooldownRef.current &&
+      !anyAttackLock &&
+      !jumpLock.current &&
+      !isDead.current
+    ) {
+      // ── JumpAOE ultimate: nhảy lên rồi đập xuống gây sát thương AOE ──
+      jumpAOELock.current = true;
+      setAnimation("JumpAOE");
+      gameState.userhero.isAttacking = false; // damage xử lý riêng, không qua hit pipeline thường
+      gameState.userhero.attackType = null;
+      // Nhảy lên + lunge về phía trước theo heading
+      const fwd = headingRef.current;
+      const lungeSpeed = MOVE_SPEED * 0.6;
+      rigidBodyRef.current.setLinvel({
+        x: Math.sin(fwd) * lungeSpeed,
+        y: JUMP_FORCE * 1.2,
+        z: Math.cos(fwd) * lungeSpeed,
+      }, true);
+
+      // Sau delay → đập xuống + AOE damage + spawn hiệu ứng
+      clearTimeout(jumpAOEImpulseTimer.current);
+      jumpAOEImpulseTimer.current = setTimeout(() => {
+        if (!rigidBodyRef.current) return;
+        // Slam xuống đất — giữ nguyên vị trí XZ (dừng lại tại chỗ hạ cánh)
+        rigidBodyRef.current.setLinvel({ x: 0, y: -JUMP_FORCE * 2, z: 0 }, true);
+        // Sau 1 frame ngắn, dừng hẳn XZ để không trượt
+        setTimeout(() => {
+          if (rigidBodyRef.current) {
+            const v = rigidBodyRef.current.linvel();
+            rigidBodyRef.current.setLinvel({ x: 0, y: v.y, z: 0 }, true);
+          }
+        }, 100);
+        const slamPos = rigidBodyRef.current.translation();
+
+        // AOE damage — gây sát thương cho TẤT CẢ NPC trong bán kính
+        const dmg = USER_HERO_DAMAGE.JumpAOE ?? 10;
+        for (const entry of gameState.NPC) {
+          if (entry.hp <= 0) continue;
+          const dx = slamPos.x - entry.position.x;
+          const dz = slamPos.z - entry.position.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          if (dist < JUMP_AOE_RADIUS) {
+            dealDamageToNPC(entry, dmg);
+            // Floating damage popup
+            const popupId = damageIdRef.current++;
+            setDamagePopups((prev) => [
+              ...prev,
+              {
+                id: popupId,
+                damage: dmg,
+                position: {
+                  x: entry.position.x,
+                  y: entry.position.y,
+                  z: entry.position.z,
+                },
+              },
+            ]);
+          }
+        }
+
+        // Spawn earthquake + energy effect
+        const fxId = jumpAOEEffectIdRef.current++;
+        setJumpAOEEffects((prev) => [
+          ...prev,
+          { id: fxId, position: { x: slamPos.x, y: slamPos.y, z: slamPos.z } },
+        ]);
+
+        // AOE sound
+        if (!aoeSoundRef.current) {
+          aoeSoundRef.current = new Audio(AOE_SOUND_SRC);
+          aoeSoundRef.current.volume = 1.0;
+        }
+        aoeSoundRef.current.currentTime = 0;
+        aoeSoundRef.current.play().catch(() => {});
+        playPunchSound();
+
+        // Trigger screen shake
+        shakeTimeRef.current = SHAKE_DURATION;
+      }, JUMP_AOE_LAND_DELAY_MS);
+
+      // Lock timer
+      clearTimeout(jumpAOETimer.current);
+      jumpAOETimer.current = setTimeout(() => {
+        jumpAOELock.current = false;
+      }, lockMs.JumpAOE);
+
+      // Cooldown
+      jumpAOECooldownRef.current = true;
+      const totalSecs = JUMP_AOE_COOLDOWN / 1000;
+      setJumpAOECd(totalSecs);
+      let remaining = totalSecs;
+      const cdInterval = setInterval(() => {
+        remaining--;
+        setJumpAOECd(Math.max(0, remaining));
+        if (remaining <= 0) {
+          clearInterval(cdInterval);
+          jumpAOECooldownRef.current = false;
+        }
+      }, 1000);
     } else if (!jumpLock.current && !anyAttackLock && !helloLock.current) {
       if (!isMoving) setAnimation("Idle");
       else if (moveDir < 0) setAnimation("RunBackward");
       else setAnimation("Run");
     }
 
+
     // Khi đang attack (lock) → dừng di chuyển, chỉ giữ lunge + gravity
-    if (anyAttackLock) {
+    // Bỏ qua JumpAOE vì cần giữ momentum khi bay lên
+    if (anyAttackLock && !jumpAOELock.current) {
       const curVel = rigidBodyRef.current.linvel();
       // Giảm dần lunge velocity (damping)
       rigidBodyRef.current.setLinvel({ x: curVel.x * 0.9, y: curVel.y, z: curVel.z * 0.9 }, true);
@@ -742,7 +895,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       const dz = pos.z - entry.position.z;
       if (Math.sqrt(dx * dx + dz * dz) < ATTACK_RANGE) {
         entry.hitDealt = true;
-        takeDamage(0.5);
+        takeDamage(entry.damage ?? 0.5);
         // Stagger animation — chỉ trigger khi không đang attack/jump/đã stagger
         if (!hitReactionLock.current && !jumpLock.current && !punchLock.current
           && !kickLock.current && !kickUpLock.current && !hookPunchLock.current
@@ -843,13 +996,24 @@ const CharacterController = ({ cameraControlsRef }) => {
 
       // enableTransition = false vì đã smooth thủ công, để CameraControls
       // không double-smooth (sẽ gây cảm giác trễ + rung).
+      // 5. Apply screen shake offset (earthquake khi JumpAOE đập xuống)
+      let shakeX = 0, shakeY = 0, shakeZ = 0;
+      if (shakeTimeRef.current > 0) {
+        shakeTimeRef.current -= delta;
+        const t = Math.max(0, shakeTimeRef.current / SHAKE_DURATION); // 1→0
+        const intensity = SHAKE_INTENSITY * t * t; // ease-out quadratic decay
+        shakeX = (Math.random() - 0.5) * 2 * intensity;
+        shakeY = (Math.random() - 0.5) * 2 * intensity * 0.6; // ít rung dọc hơn
+        shakeZ = (Math.random() - 0.5) * 2 * intensity;
+      }
+
       cameraControlsRef.current.setLookAt(
-        cameraPosRef.current.x,
-        cameraPosRef.current.y,
-        cameraPosRef.current.z,
-        targetX,
-        targetY,
-        targetZ,
+        cameraPosRef.current.x + shakeX,
+        cameraPosRef.current.y + shakeY,
+        cameraPosRef.current.z + shakeZ,
+        targetX + shakeX * 0.3,
+        targetY + shakeY * 0.3,
+        targetZ + shakeZ * 0.3,
         false,
       );
     }
@@ -894,6 +1058,17 @@ const CharacterController = ({ cameraControlsRef }) => {
           damage={popup.damage}
           position={popup.position}
           onComplete={handleDamageComplete}
+        />
+      ))}
+
+      {/* JumpAOE effects */}
+      {jumpAOEEffects.map((fx) => (
+        <JumpAOEEffect
+          key={fx.id}
+          position={fx.position}
+          onComplete={() =>
+            setJumpAOEEffects((prev) => prev.filter((e) => e.id !== fx.id))
+          }
         />
       ))}
 

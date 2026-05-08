@@ -1,26 +1,13 @@
-/**
- * NPC Registry — Danh sách NPC có thể tùy chỉnh.
- *
- * Mỗi entry định nghĩa 1 loại NPC với đầy đủ thông số:
- *  - id / label: định danh + tên hiển thị
- *  - modelPath: đường dẫn tới file .glb
- *  - hp, scale, damage, moveSpeed, attackRange: thông số gameplay
- *  - capsule*: collider shape (CapsuleCollider args)
- *  - animations: mapping tên hành động → tên clip trong GLB
- *  - oneShotAnims: danh sách animation chỉ phát 1 lần (không loop)
- *  - spawnSound: âm thanh khi NPC xuất hiện
- *
- * ⚡ Chỉ cần sửa file này để thêm NPC mới hoặc thay đổi thông số.
- */
+
 
 export const NPC_REGISTRY = [
   {
     id: "npc1",
     label: "John",
     modelPath: "models/character/NPC1.glb",
-    hp: 15,
+    hp: 10,
     scale: 10,
-    damage: 0.5,
+    damage: 0.3,
     moveSpeed: 20,
     attackRange: 10,
     // Collider
@@ -41,9 +28,9 @@ export const NPC_REGISTRY = [
     id: "npc2",
     label: "Shadow",
     modelPath: "models/character/NPC2.glb",
-    hp: 25,
+    hp: 15,
     scale: 10,
-    damage: 0.8,
+    damage: 0.5,
     moveSpeed: 18,
     attackRange: 12,
     // Collider
