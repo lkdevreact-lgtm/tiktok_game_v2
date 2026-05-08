@@ -45,6 +45,7 @@ const USER_HERO_ONE_SHOTS = [
   "KickUp",
   "HookPunch",
   "Jump",
+  "JumpBackward",
   "Die",
   "HitReaction",
   "Hello",
@@ -91,6 +92,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       KickUp: getAnimLockMs(dur.KickUp, "KickUp"),
       HookPunch: getAnimLockMs(dur.HookPunch, "HookPunch"),
       Jump: getAnimLockMs(dur.Jump, "Jump"),
+      JumpBackward: getAnimLockMs(dur.JumpBackward || dur.Jump, "JumpBackward"),
       HitReaction: getAnimLockMs(dur.HitReaction, "HitReaction"),
       Hello: getAnimLockMs(dur.Hello, "Hello"),
     };
@@ -602,7 +604,8 @@ const CharacterController = ({ cameraControlsRef }) => {
     if (justPressedJump && !jumpLock.current && !hitReactionLock.current) {
       jumpLock.current = true;
       jumpImpulseApplied.current = false;
-      setAnimation("Jump");
+      const jumpAnim = moveDir < 0 ? "JumpBackward" : "Jump";
+      setAnimation(jumpAnim);
       gameState.userhero.isAttacking = false;
       gameState.userhero.attackType = null;
       // Delay lực nhảy 300ms để đồng bộ với animation (nhân vật cúi xuống trước rồi mới bật lên)
@@ -617,7 +620,7 @@ const CharacterController = ({ cameraControlsRef }) => {
       clearTimeout(jumpTimer.current);
       jumpTimer.current = setTimeout(() => {
         jumpLock.current = false;
-      }, lockMs.Jump);
+      }, lockMs[jumpAnim] || lockMs.Jump);
     } else if (
       justPressedPunch &&
       !anyAttackLock &&
