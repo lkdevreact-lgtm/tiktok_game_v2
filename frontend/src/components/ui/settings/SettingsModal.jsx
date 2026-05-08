@@ -49,11 +49,10 @@ const SettingsModal = ({ open, onClose }) => {
                   key={id}
                   type="button"
                   onClick={() => setActiveTab(id)}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    isActive
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${isActive
                       ? "bg-blue-600/20 text-blue-200"
                       : "text-slate-400 hover:bg-white/5 hover:text-white"
-                  }`}
+                    }`}
                 >
                   <Icon /> {label}
                 </button>

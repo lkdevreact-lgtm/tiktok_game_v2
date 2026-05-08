@@ -201,7 +201,7 @@ const TriggerRow = ({ trigger, gifts, disabled, onEdit, onDelete, onToggle }) =>
   const giftName =
     trigger.event_type === "gift" && trigger.gift_id != null
       ? gifts.find((g) => g.gift_id === trigger.gift_id)?.gift_name ||
-        `#${trigger.gift_id}`
+      `#${trigger.gift_id}`
       : null;
 
   // Tìm label NPC từ registry
@@ -440,14 +440,12 @@ const ToggleSwitch = ({ checked, disabled, onChange }) => (
     aria-checked={checked}
     disabled={disabled}
     onClick={onChange}
-    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-50 ${
-      checked ? "bg-emerald-500" : "bg-slate-600"
-    }`}
+    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-50 ${checked ? "bg-emerald-500" : "bg-slate-600"
+      }`}
   >
     <span
-      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
-        checked ? "translate-x-5" : "translate-x-0.5"
-      }`}
+      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${checked ? "translate-x-5" : "translate-x-0.5"
+        }`}
     />
   </button>
 );
