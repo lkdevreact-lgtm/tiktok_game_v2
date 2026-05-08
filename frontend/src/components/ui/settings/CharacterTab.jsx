@@ -48,6 +48,7 @@ const HeroSettings = () => {
       <NumberField label="Kick" value={cfg.damage.Kick} step={0.1} onChange={(v) => setDmg("Kick", v)} />
       <NumberField label="KickUp" value={cfg.damage.KickUp} step={0.1} onChange={(v) => setDmg("KickUp", v)} />
       <NumberField label="HookPunch" value={cfg.damage.HookPunch} step={0.1} onChange={(v) => setDmg("HookPunch", v)} />
+      <NumberField label="JumpAOE" value={cfg.damage.JumpAOE} step={1} onChange={(v) => setDmg("JumpAOE", v)} />
     </div>
   );
 };

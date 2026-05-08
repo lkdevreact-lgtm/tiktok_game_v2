@@ -525,6 +525,17 @@ const CharacterController = ({ cameraControlsRef }) => {
       }, 1000);
     }
 
+    // Early-cancel locks khi di chuyển — phải check TRƯỜC anyAttackLock
+    // để Run/Idle animation kick in ngay trong frame này.
+    if (hitReactionLock.current && isMoving) {
+      hitReactionLock.current = false;
+      clearTimeout(hitReactionTimer.current);
+    }
+    if (jumpAOELock.current && isMoving && Math.abs(velocity.y) < 1) {
+      jumpAOELock.current = false;
+      clearTimeout(jumpAOETimer.current);
+    }
+
     const anyAttackLock =
       punchLock.current ||
       kickLock.current ||
@@ -736,15 +747,28 @@ const CharacterController = ({ cameraControlsRef }) => {
       setAnimation("JumpAOE");
       gameState.userhero.isAttacking = false; // damage xử lý riêng, không qua hit pipeline thường
       gameState.userhero.attackType = null;
-      // Nhảy lên
-      rigidBodyRef.current.setLinvel({ x: 0, y: JUMP_FORCE * 1.2, z: 0 }, true);
+      // Nhảy lên + lunge về phía trước theo heading
+      const fwd = headingRef.current;
+      const lungeSpeed = MOVE_SPEED * 0.6;
+      rigidBodyRef.current.setLinvel({
+        x: Math.sin(fwd) * lungeSpeed,
+        y: JUMP_FORCE * 1.2,
+        z: Math.cos(fwd) * lungeSpeed,
+      }, true);
 
       // Sau delay → đập xuống + AOE damage + spawn hiệu ứng
       clearTimeout(jumpAOEImpulseTimer.current);
       jumpAOEImpulseTimer.current = setTimeout(() => {
         if (!rigidBodyRef.current) return;
-        // Slam xuống đất
+        // Slam xuống đất — giữ nguyên vị trí XZ (dừng lại tại chỗ hạ cánh)
         rigidBodyRef.current.setLinvel({ x: 0, y: -JUMP_FORCE * 2, z: 0 }, true);
+        // Sau 1 frame ngắn, dừng hẳn XZ để không trượt
+        setTimeout(() => {
+          if (rigidBodyRef.current) {
+            const v = rigidBodyRef.current.linvel();
+            rigidBodyRef.current.setLinvel({ x: 0, y: v.y, z: 0 }, true);
+          }
+        }, 100);
         const slamPos = rigidBodyRef.current.translation();
 
         // AOE damage — gây sát thương cho TẤT CẢ NPC trong bán kính
@@ -818,8 +842,10 @@ const CharacterController = ({ cameraControlsRef }) => {
       else setAnimation("Run");
     }
 
+
     // Khi đang attack (lock) → dừng di chuyển, chỉ giữ lunge + gravity
-    if (anyAttackLock) {
+    // Bỏ qua JumpAOE vì cần giữ momentum khi bay lên
+    if (anyAttackLock && !jumpAOELock.current) {
       const curVel = rigidBodyRef.current.linvel();
       // Giảm dần lunge velocity (damping)
       rigidBodyRef.current.setLinvel({ x: curVel.x * 0.9, y: curVel.y, z: curVel.z * 0.9 }, true);
