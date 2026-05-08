@@ -613,7 +613,7 @@ const CharacterController = ({ cameraControlsRef }) => {
           const curVel = rigidBodyRef.current.linvel();
           rigidBodyRef.current.setLinvel({ x: curVel.x, y: JUMP_FORCE, z: curVel.z }, true);
         }
-      }, 300);
+      }, 100);
       clearTimeout(jumpTimer.current);
       jumpTimer.current = setTimeout(() => {
         jumpLock.current = false;
