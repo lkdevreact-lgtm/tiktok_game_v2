@@ -15,5 +15,6 @@ export const HERO_DEFAULTS = {
     Kick: 1,
     KickUp: 3,
     HookPunch: 3,
+    JumpAOE: 6,
   },
 };

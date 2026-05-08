@@ -6,7 +6,7 @@ import { SkeletonUtils } from "three-stdlib";
 import { ANIM_TIME_SCALE } from "../../lib/animConfig";
 
 const DEFAULT_ONE_SHOTS = new Set(["Punch", "Kick", "Jump"]);
-const COMBAT_ANIMS = new Set(["Punch", "Kick", "KickUp", "HookPunch"]);
+const COMBAT_ANIMS = new Set(["Punch", "Kick", "KickUp", "HookPunch", "JumpAOE"]);
 // Combat transitions blend faster for snappy feel; others blend smoothly
 const COMBAT_BLEND = 0.15;
 const NORMAL_BLEND = 0.25;

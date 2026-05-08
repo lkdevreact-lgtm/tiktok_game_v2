@@ -10,6 +10,7 @@ import {
   fullRestartAtom,
   NPCHpAtom,
   teleportCooldownAtom,
+  jumpAOECooldownAtom,
 } from "../../stores/gameStore";
 import { AiFillSetting } from "react-icons/ai";
 import SettingsModal from "./settings/SettingsModal";
@@ -53,6 +54,7 @@ const HealthBarHUD = () => {
   const [playCount, setPlayCount] = useAtom(playCountAtom);
   const setFullRestart = useSetAtom(fullRestartAtom);
   const teleportCd = useAtomValue(teleportCooldownAtom);
+  const jumpAOECd = useAtomValue(jumpAOECooldownAtom);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const remainingPlays = MAX_PLAYS - playCount;
@@ -135,6 +137,11 @@ const HealthBarHUD = () => {
           <kbd className="px-1.5 py-0.5 bg-cyan-500/40 rounded text-white text-xs font-bold">T</kbd>
           <span className="text-white/70 text-xs">Teleport</span>
         </div>
+        <div className="w-px bg-white/20" />
+        <div className="flex items-center gap-1.5">
+          <kbd className="px-1.5 py-0.5 bg-amber-500/40 rounded text-white text-xs font-bold">U</kbd>
+          <span className="text-white/70 text-xs">JumpAOE</span>
+        </div>
       </div>
 
       {/* Round counter + Settings button (always visible) */}
@@ -189,6 +196,37 @@ const HealthBarHUD = () => {
           </div>
           <span className="text-[10px] text-white/40 font-medium">
             {teleportCd > 0 ? "Cooldown" : "Ready"}
+          </span>
+        </div>
+
+        {/* JumpAOE skill indicator */}
+        <div className="flex flex-col items-center gap-1">
+          <div
+            className={`relative flex h-12 w-12 items-center justify-center rounded-xl border-2 ${
+              jumpAOECd > 0
+                ? "border-white/20 bg-black/60"
+                : "border-amber-400/60 bg-amber-500/20 shadow-lg shadow-amber-500/30"
+            } transition-all duration-300`}
+          >
+            <span className="text-lg font-bold select-none">
+              {jumpAOECd > 0 ? (
+                <span className="text-white/50">{jumpAOECd}</span>
+              ) : (
+                <span className="text-amber-300">U</span>
+              )}
+            </span>
+            {/* Cooldown overlay */}
+            {jumpAOECd > 0 && (
+              <div
+                className="absolute inset-0 rounded-xl bg-black/40"
+                style={{
+                  clipPath: `inset(${((15 - jumpAOECd) / 15) * 100}% 0 0 0)`,
+                }}
+              />
+            )}
+          </div>
+          <span className="text-[10px] text-white/40 font-medium">
+            {jumpAOECd > 0 ? "Cooldown" : "Ready"}
           </span>
         </div>
       </div>
